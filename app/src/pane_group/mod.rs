@@ -3128,9 +3128,7 @@ impl PaneGroup {
         conversation_id: AIConversationId,
         ctx: &AppContext,
     ) -> Option<EntityId> {
-        BlocklistAIHistoryModel::as_ref(ctx)
-            .owner_id_for_conversation(&conversation_id)
-            .map(|id| id)
+        BlocklistAIHistoryModel::as_ref(ctx).owner_id_for_conversation(&conversation_id)
     }
 
     fn pane_id_for_owned_conversation(

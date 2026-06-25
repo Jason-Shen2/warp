@@ -423,8 +423,7 @@ impl PaneContent for TerminalPane {
             // Only immediately clear conversations and delete blocks if the session is being
             // permanently closed.
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                history_model
-                    .clear_conversations_for_owner(self.terminal_view(ctx).id().into(), ctx);
+                history_model.clear_conversations_for_owner(self.terminal_view(ctx).id(), ctx);
             });
             self.delete_blocks(ctx);
         }
@@ -558,7 +557,7 @@ impl PaneContent for TerminalPane {
 
             // Collect all conversation IDs for this terminal view
             let conversation_ids_to_restore = BlocklistAIHistoryModel::as_ref(app)
-                .all_live_conversations_for_owner(self.terminal_view(app).id().into())
+                .all_live_conversations_for_owner(self.terminal_view(app).id())
                 .map(|conversation| conversation.id())
                 .collect();
 
@@ -690,7 +689,7 @@ fn agent_conversation_action_state(
     let conversation = history_model.conversation(&conversation_id)?;
     let owner_terminal_view_id = history_model.owner_id_for_conversation(&conversation_id)?;
     Some(AgentConversationActionState {
-        owner_terminal_view_id: owner_terminal_view_id,
+        owner_terminal_view_id,
         task_id: conversation.task_id(),
         is_in_progress: conversation.status().is_in_progress(),
         is_cloud_cancel_candidate: conversation.is_remote_child()

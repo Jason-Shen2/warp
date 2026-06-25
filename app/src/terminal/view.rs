@@ -5984,20 +5984,14 @@ impl TerminalView {
             }
             | BlocklistAIHistoryEvent::UpdatedConversationTitle {
                 conversation_id, ..
-            } => history_model
-                .owner_id_for_conversation(conversation_id)
-                .map(|id| id),
+            } => history_model.owner_id_for_conversation(conversation_id),
             BlocklistAIHistoryEvent::ReassignedExchange {
                 new_conversation_id,
                 ..
-            } => history_model
-                .owner_id_for_conversation(new_conversation_id)
-                .map(|id| id),
+            } => history_model.owner_id_for_conversation(new_conversation_id),
             BlocklistAIHistoryEvent::UpdatedConversationMetadata {
                 conversation_id, ..
-            } => history_model
-                .owner_id_for_conversation(conversation_id)
-                .map(|id| id),
+            } => history_model.owner_id_for_conversation(conversation_id),
             BlocklistAIHistoryEvent::StartedNewConversation { .. }
             | BlocklistAIHistoryEvent::CreatedSubtask { .. }
             | BlocklistAIHistoryEvent::UpgradedTask { .. }

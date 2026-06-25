@@ -140,6 +140,7 @@ fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextMode
         )
     })
 }
+
 /// Builds the controller-less context model owned by a TUI conversation surface.
 fn build_controllerless_context_model(
     app: &mut App,

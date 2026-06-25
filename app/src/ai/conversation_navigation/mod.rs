@@ -262,7 +262,7 @@ impl ConversationNavigationData {
                     return;
                 }
 
-                if !open_terminal_views.contains(&terminal_id)
+                if !open_terminal_views.contains(terminal_id)
                     && !all_conversation_ids.contains(&conversation.id())
                 {
                     all_conversation_ids.insert(conversation.id());

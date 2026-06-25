@@ -3596,7 +3596,7 @@ impl Workspace {
             );
 
             if is_relevant_update
-                && event.owner_id().map(|id| id).is_some_and(|event_id| {
+                && event.owner_id().is_some_and(|event_id| {
                     focused_terminal_view_id.is_some_and(|id| id == event_id)
                 })
             {
@@ -3646,12 +3646,9 @@ impl Workspace {
                 | BlocklistAIHistoryEvent::RestoredConversations { .. }
                 | BlocklistAIHistoryEvent::UpdatedConversationTitle { .. }
                 | BlocklistAIHistoryEvent::UpdatedConversationMetadata { .. }
-        ) && event
-            .owner_id()
-            .map(|id| id)
-            .is_some_and(|terminal_view_id| {
-                self.workspace_contains_terminal_view(terminal_view_id, ctx)
-            })
+        ) && event.owner_id().is_some_and(|terminal_view_id| {
+            self.workspace_contains_terminal_view(terminal_view_id, ctx)
+        })
     }
 
     fn handle_cli_agent_sessions_event(
