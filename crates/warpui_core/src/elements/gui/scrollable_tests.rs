@@ -11,9 +11,9 @@ use crate::elements::{
 };
 use crate::platform::WindowStyle;
 use crate::presenter::DispatchedActionKind;
-use crate::EntityIdSet;
 use crate::{
-    App, AppContext, Entity, Event, Presenter, TypedActionView, ViewContext, WindowInvalidation,
+    App, AppContext, Entity, EntityIdSet, Event, Presenter, TypedActionView, ViewContext,
+    WindowInvalidation,
 };
 
 /// Since we support scrolling in both vertical and horizontal directions,

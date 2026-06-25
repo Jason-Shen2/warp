@@ -7,8 +7,7 @@ use crate::elements::tui::{
 };
 use crate::event::KeyEventDetails;
 use crate::keymap::Keystroke;
-use crate::EntityIdMap;
-use crate::{App, EntityId, Event};
+use crate::{App, EntityId, EntityIdMap, Event};
 
 fn key_event(key: &str) -> Event {
     Event::KeyDown {

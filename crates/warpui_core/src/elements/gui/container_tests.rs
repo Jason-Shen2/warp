@@ -7,9 +7,9 @@ use pathfinder_geometry::vector::vec2f;
 use super::*;
 use crate::elements::{ConstrainedBox, DispatchEventResult, EventHandler, Rect, ZIndex};
 use crate::platform::WindowStyle;
-use crate::EntityIdSet;
 use crate::{
-    App, AppContext, Entity, Event, Presenter, TypedActionView, ViewContext, WindowInvalidation,
+    App, AppContext, Entity, EntityIdSet, Event, Presenter, TypedActionView, ViewContext,
+    WindowInvalidation,
 };
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]

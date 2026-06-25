@@ -4,8 +4,7 @@ use super::{ClippedScrollStateHandle, ClippedScrollable, ScrollTarget, ScrollToP
 use crate::elements::{Axis, ConstrainedBox, Empty, Flex, ParentElement, SavePosition, Stack};
 use crate::platform::WindowStyle;
 use crate::units::IntoPixels;
-use crate::EntityIdSet;
-use crate::{App, Element, Entity, Presenter, TypedActionView, WindowInvalidation};
+use crate::{App, Element, Entity, EntityIdSet, Presenter, TypedActionView, WindowInvalidation};
 
 macro_rules! assert_float_eq {
     ($lhs:expr, $rhs:expr) => {{

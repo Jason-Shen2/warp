@@ -10,10 +10,9 @@ use crate::elements::{
     Clipped, ConstrainedBox, DispatchEventResult, EventHandler, ParentElement, Rect, ZIndex,
 };
 use crate::platform::WindowStyle;
-use crate::EntityIdSet;
 use crate::{
-    App, AppContext, Entity, Event, Presenter, TypedActionView, ViewContext, ViewHandle, WindowId,
-    WindowInvalidation,
+    App, AppContext, Entity, EntityIdSet, Event, Presenter, TypedActionView, ViewContext,
+    ViewHandle, WindowId, WindowInvalidation,
 };
 
 #[derive(Default)]

@@ -19,11 +19,10 @@ use crate::platform::{TerminationMode, WindowStyle};
 use crate::text::word_boundaries::WordBoundariesPolicy;
 use crate::text::{IsRect, SelectionDirection, SelectionType};
 use crate::units::Pixels;
-use crate::EntityIdSet;
 use crate::{
-    AfterLayoutContext, App, AppContext, Element, Entity, EntityId, Event, EventContext,
-    LayoutContext, PaintContext, Presenter, SizeConstraint, TypedActionView, View, ViewContext,
-    WindowInvalidation,
+    AfterLayoutContext, App, AppContext, Element, Entity, EntityId, EntityIdSet, Event,
+    EventContext, LayoutContext, PaintContext, Presenter, SizeConstraint, TypedActionView, View,
+    ViewContext, WindowInvalidation,
 };
 
 const TOTAL_SCROLLABLE_SIZE: f32 = 500.;

@@ -12,9 +12,9 @@ use crate::elements::{
 use crate::fonts::FamilyId;
 use crate::platform::WindowStyle;
 use crate::r#async::Timer;
-use crate::EntityIdSet;
 use crate::{
-    App, AppContext, Entity, Event, Presenter, TypedActionView, ViewContext, WindowInvalidation,
+    App, AppContext, Entity, EntityIdSet, Event, Presenter, TypedActionView, ViewContext,
+    WindowInvalidation,
 };
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]

@@ -2,8 +2,7 @@ use super::TuiChildView;
 use crate::elements::tui::{
     TuiBuffer, TuiBufferExt, TuiElement, TuiLayoutContext, TuiPresentationContext, TuiRect, TuiText,
 };
-use crate::EntityId;
-use crate::EntityIdMap;
+use crate::{EntityId, EntityIdMap};
 
 #[test]
 fn embeds_and_renders_the_stub_at_the_given_area() {

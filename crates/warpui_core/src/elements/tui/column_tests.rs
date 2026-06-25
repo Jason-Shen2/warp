@@ -9,8 +9,7 @@ use crate::elements::tui::{
 };
 use crate::event::KeyEventDetails;
 use crate::keymap::Keystroke;
-use crate::EntityIdMap;
-use crate::{App, EntityId, Event};
+use crate::{App, EntityId, EntityIdMap, Event};
 
 fn render_to_lines(element: &dyn TuiElement, size: TuiSize) -> Vec<String> {
     let mut buffer = TuiBuffer::empty(TuiRect::new(0, 0, size.width, size.height));

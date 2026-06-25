@@ -10,9 +10,9 @@ use crate::elements::{
     OffsetPositioning, ParentAnchor, ParentElement, ParentOffsetBounds, Rect, Stack, ZIndex,
 };
 use crate::platform::WindowStyle;
-use crate::EntityIdSet;
 use crate::{
-    App, AppContext, Entity, Event, Presenter, TypedActionView, ViewContext, WindowInvalidation,
+    App, AppContext, Entity, EntityIdSet, Event, Presenter, TypedActionView, ViewContext,
+    WindowInvalidation,
 };
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
