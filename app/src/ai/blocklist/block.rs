@@ -4739,6 +4739,10 @@ impl AIBlock {
 
         if !cards.is_empty() {
             self.has_imported_comments = true;
+            let conversation_id = self.client_ids.conversation_id;
+            BlocklistAIHistoryModel::handle(ctx).update(ctx, |model, _| {
+                model.mark_conversation_has_imported_comments(conversation_id);
+            });
         }
 
         self.imported_comments.insert(
@@ -5738,15 +5742,18 @@ impl AIBlock {
     /// bulk "Open all in code review" button based on whether the current working
     /// directory is still within the imported comments' repository.
     fn update_imported_comments_disabled_state(&mut self, ctx: &mut ViewContext<Self>) {
-        let cwd_location = self.current_working_directory_location(ctx);
-
         if self.has_imported_comments {
+            let cwd_location = self.current_working_directory_location(ctx);
             self.update_own_imported_comments_disabled_state(cwd_location.as_ref(), ctx);
-        } else if self.model.is_latest_visible_exchange_in_root_task(ctx) {
+        } else if BlocklistAIHistoryModel::as_ref(ctx)
+            .conversation_has_imported_comments(&self.client_ids.conversation_id)
+            && self.model.is_latest_visible_exchange_in_root_task(ctx)
+        {
             // The "Open all" button is rendered by the latest visible exchange when the
             // current thread has imported comments but this block does not own them directly.
             // Update that block's button state from its CWD so the button disables when the
             // user navigates outside the imported comments' repository.
+            let cwd_location = self.current_working_directory_location(ctx);
             self.update_open_all_button_disabled_state(cwd_location.as_ref(), ctx);
         } else {
             return;
