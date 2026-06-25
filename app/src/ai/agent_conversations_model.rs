@@ -1499,8 +1499,9 @@ impl AgentConversationsModel {
             | BlocklistAIHistoryEvent::RestoredConversations { .. }
             | BlocklistAIHistoryEvent::RemoveConversation { .. }
             | BlocklistAIHistoryEvent::DeletedConversation { .. }
-            | BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. }
-            | BlocklistAIHistoryEvent::ClearedActiveConversation { .. } => {
+            | BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. }
+            | BlocklistAIHistoryEvent::ClearedActiveConversation { .. }
+            => {
                 self.sync_conversations(ctx);
             }
 

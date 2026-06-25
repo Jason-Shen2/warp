@@ -249,7 +249,7 @@ impl QueuedPromptsPanelView {
         let history_handle = BlocklistAIHistoryModel::handle(ctx);
         let active_conversation_id = history_handle
             .as_ref(ctx)
-            .active_conversation_id(terminal_view_id);
+            .active_conversation_id(terminal_view_id.into());
 
         ctx.subscribe_to_model(&history_handle, move |me, _, event, ctx| {
             me.handle_history_event(event, ctx);
@@ -456,13 +456,13 @@ impl QueuedPromptsPanelView {
         ctx: &mut ViewContext<Self>,
     ) {
         let is_for_this_view = event
-            .terminal_view_id()
+            .owner_id()
             .is_some_and(|id| id == self.terminal_view_id);
         if !is_for_this_view {
             return;
         }
-        let new_active =
-            BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.terminal_view_id);
+        let new_active = BlocklistAIHistoryModel::as_ref(ctx)
+            .active_conversation_id(self.terminal_view_id.into());
         if new_active != self.active_conversation_id {
             self.active_conversation_id = new_active;
             self.row_states.clear();

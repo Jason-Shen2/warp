@@ -681,7 +681,7 @@ impl Input {
                 let history = BlocklistAIHistoryModel::handle(ctx);
                 let Some(conversation) = history
                     .as_ref(ctx)
-                    .active_conversation(self.terminal_view_id)
+                    .active_conversation(self.terminal_view_id.into())
                 else {
                     show_error_toast("No active conversation to export".to_owned(), ctx);
                     return true;
@@ -908,7 +908,7 @@ impl Input {
                 let history = BlocklistAIHistoryModel::handle(ctx);
                 let conversation = history
                     .as_ref(ctx)
-                    .active_conversation(self.terminal_view_id);
+                    .active_conversation(self.terminal_view_id.into());
                 if conversation.is_none() {
                     show_error_toast(
                         "Cannot show conversation cost: no active conversation".to_owned(),

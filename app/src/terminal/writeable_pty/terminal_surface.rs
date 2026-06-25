@@ -50,6 +50,10 @@ pub(crate) trait TerminalSurface: View + 'static
 where
     <Self as Entity>::Event: PtyIntentEvent,
 {
+    /// Whether this surface needs a local PTY and shell lifecycle.
+    fn should_start_pty(&self) -> bool {
+        true
+    }
     /// Whether the local manager should start polling termios for a password prompt
     /// after the given block starts.
     #[cfg(unix)]

@@ -1364,7 +1364,7 @@ impl AmbientAgentViewModel {
                             conversation_id,
                             run_id,
                             spawned_task_id,
-                            terminal_view_id,
+                            terminal_view_id.into(),
                             ctx,
                         );
                     });

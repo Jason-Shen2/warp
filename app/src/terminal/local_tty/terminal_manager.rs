@@ -77,6 +77,7 @@ pub struct TerminalManager<S> {
     /// This is an `Option` so that we can take ownership of the inner
     /// `JoinHandle` in `TerminalManager::drop`.
     event_loop_handle: Option<JoinHandle<()>>,
+    should_start_pty: bool,
     pub(super) model: Arc<FairMutex<TerminalModel>>,
     pub(super) view: ViewHandle<S>,
 
@@ -111,18 +112,18 @@ pub struct TerminalManager<S> {
 
 /// Shared inputs needed to construct a terminal surface for a local PTY.
 pub(crate) struct TerminalSurfaceInit {
-    pub(super) wakeups_rx: async_channel::Receiver<()>,
-    pub(super) model_events: ModelHandle<ModelEventDispatcher>,
-    pub(super) model: Arc<FairMutex<TerminalModel>>,
-    pub(super) sessions: ModelHandle<Sessions>,
-    pub(super) size_info: SizeInfo,
-    pub(super) colors: ColorList,
-    pub(super) inactive_pty_reads_rx: InactiveReceiver<Arc<Vec<u8>>>,
+    pub(crate) wakeups_rx: async_channel::Receiver<()>,
+    pub(crate) model_events: ModelHandle<ModelEventDispatcher>,
+    pub(crate) model: Arc<FairMutex<TerminalModel>>,
+    pub(crate) sessions: ModelHandle<Sessions>,
+    pub(crate) size_info: SizeInfo,
+    pub(crate) colors: ColorList,
+    pub(crate) inactive_pty_reads_rx: InactiveReceiver<Arc<Vec<u8>>>,
 }
 /// A newly constructed terminal surface and its manager post-wiring callback.
 pub(crate) struct TerminalSurfaceResult<S, PostWire> {
-    pub(super) surface: ViewHandle<S>,
-    pub(super) post_wire: PostWire,
+    pub(crate) surface: ViewHandle<S>,
+    pub(crate) post_wire: PostWire,
 }
 
 /// One-shot resources consumed when the shell is determined and the PTY starts.
@@ -294,6 +295,7 @@ impl<S> TerminalManager<S> {
             event_loop_tx: Arc::new(Mutex::new(event_loop_tx)),
             model,
             event_loop_handle: None,
+            should_start_pty: surface.as_ref(ctx).should_start_pty(),
             view: surface.clone(),
             #[cfg(unix)]
             terminal_attributes_poller: None,
@@ -316,38 +318,41 @@ impl<S> TerminalManager<S> {
             #[cfg(unix)]
             model_events,
         };
+        let should_start_pty = terminal_manager.should_start_pty;
 
         let terminal_manager_model = ctx.add_model(|ctx| {
             let terminal_manager: Box<dyn TerminalManagerTrait> = Box::new(terminal_manager);
 
-            ctx.spawn(
-                async move {
-                    match wsl_name_or_shell_starter {
-                        Some(starter_source) => starter_source.to_shell_starter_source().await,
-                        None => None,
-                    }
-                },
-                move |terminal_manager: &mut Box<dyn TerminalManagerTrait>,
-                      shell_starter_source,
-                      ctx| {
-                    let Some(terminal_manager) =
-                        TerminalManagerTrait::as_any_mut(terminal_manager.as_mut())
-                            .downcast_mut::<Self>()
-                    else {
-                        return;
-                    };
+            if should_start_pty {
+                ctx.spawn(
+                    async move {
+                        match wsl_name_or_shell_starter {
+                            Some(starter_source) => starter_source.to_shell_starter_source().await,
+                            None => None,
+                        }
+                    },
+                    move |terminal_manager: &mut Box<dyn TerminalManagerTrait>,
+                          shell_starter_source,
+                          ctx| {
+                        let Some(terminal_manager) =
+                            TerminalManagerTrait::as_any_mut(terminal_manager.as_mut())
+                                .downcast_mut::<Self>()
+                        else {
+                            return;
+                        };
 
-                    on_shell_determined(
-                        terminal_manager,
-                        startup_directory,
-                        env_vars,
-                        user_default_shell_unsupported_banner_model_handle,
-                        shell_startup_resources,
-                        shell_starter_source,
-                        ctx,
-                    )
-                },
-            );
+                        on_shell_determined(
+                            terminal_manager,
+                            startup_directory,
+                            env_vars,
+                            user_default_shell_unsupported_banner_model_handle,
+                            shell_startup_resources,
+                            shell_starter_source,
+                            ctx,
+                        )
+                    },
+                );
+            }
 
             terminal_manager
         });
@@ -359,7 +364,7 @@ impl<S> TerminalManager<S> {
     }
 
     /// Returns the terminal model owned by this manager.
-    pub(super) fn model(&self) -> Arc<FairMutex<TerminalModel>> {
+    pub(crate) fn model(&self) -> Arc<FairMutex<TerminalModel>> {
         self.model.clone()
     }
 
@@ -371,6 +376,10 @@ impl<S> TerminalManager<S> {
     /// Sends a shutdown message to the PTY event loop and waits for it to
     /// process that event.
     pub(super) fn shutdown_event_loop(&mut self) {
+        if !self.should_start_pty {
+            self.inactive_pty_reads_rx.close();
+            return;
+        }
         let shutdown_res = self.event_loop_tx.lock().send(Message::Shutdown);
         // Happens normally if the event loop has already been terminated (so the channel is now gone).
         if let Err(e) = shutdown_res {

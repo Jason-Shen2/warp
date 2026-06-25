@@ -116,7 +116,7 @@ fn start_new_child_conversation(
 ) -> AIConversationId {
     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
         history_model.start_new_child_conversation(
-            terminal_view_id,
+            terminal_view_id.into(),
             name,
             parent_conversation_id,
             orchestration_harness,
@@ -268,7 +268,7 @@ pub(crate) fn create_error_child_agent_conversation(
 
     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
         history_model.update_conversation_status_with_error_message(
-            terminal_view_id,
+            terminal_view_id.into(),
             conversation_id,
             ConversationStatus::Error,
             Some(error_message),

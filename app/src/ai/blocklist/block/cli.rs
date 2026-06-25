@@ -587,7 +587,7 @@ impl CLISubagentView {
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                 history.toggle_autoexecute_override(
                     &self.conversation_id,
-                    self.terminal_view_id,
+                    self.terminal_view_id.into(),
                     ctx,
                 );
             });

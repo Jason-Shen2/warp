@@ -809,7 +809,7 @@ impl AgentViewController {
         } else {
             let id = history_model.update(ctx, |history_model, ctx| {
                 history_model.start_new_conversation(
-                    self.terminal_view_id,
+                    self.terminal_view_id.into(),
                     false,
                     matches!(&origin, AgentViewEntryOrigin::CloudAgent),
                     matches!(&origin, AgentViewEntryOrigin::ThirdPartyCloudAgent),
@@ -819,7 +819,11 @@ impl AgentViewController {
             (id, 0)
         };
         history_model.update(ctx, |history_model, ctx| {
-            history_model.set_active_conversation_id(conversation_id, self.terminal_view_id, ctx)
+            history_model.set_active_conversation_id(
+                conversation_id,
+                self.terminal_view_id.into(),
+                ctx,
+            )
         });
 
         self.agent_view_state = AgentViewState::Active {

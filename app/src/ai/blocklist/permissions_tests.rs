@@ -82,7 +82,7 @@ fn initialize_permissions_test_with_mode(
     let user_workspaces = app.add_singleton_model(UserWorkspaces::default_mock);
 
     let conversation_id = history.update(app, |history_model, ctx| {
-        history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
+        history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
     });
 
     PermissionsTestState {
@@ -883,7 +883,7 @@ fn test_can_autoexecute_command_denylist_beats_run_to_completion() {
 
         // Toggle run-to-completion override for this conversation.
         history.update(&mut app, |history, ctx| {
-            history.toggle_autoexecute_override(&convo_id, terminal_view_id, ctx);
+            history.toggle_autoexecute_override(&convo_id, terminal_view_id.into(), ctx);
         });
 
         // Despite run-to-completion, denylist must take precedence and deny execution.
@@ -921,7 +921,7 @@ fn test_can_autoexecute_command_run_to_completion_allows_non_denylisted() {
 
         // Enable run-to-completion override for the conversation.
         history.update(&mut app, |history, ctx| {
-            history.toggle_autoexecute_override(&convo_id, terminal_view_id, ctx);
+            history.toggle_autoexecute_override(&convo_id, terminal_view_id.into(), ctx);
         });
 
         // Since the command is not denylisted, the override should allow execution with RunToCompletion.

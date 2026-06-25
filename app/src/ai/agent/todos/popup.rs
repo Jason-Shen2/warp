@@ -83,8 +83,8 @@ impl AgentTodosPopupView {
         event: &BlocklistAIHistoryEvent,
         ctx: &mut ViewContext<Self>,
     ) {
-        if let BlocklistAIHistoryEvent::UpdatedTodoList { terminal_view_id } = event {
-            if *terminal_view_id == self.terminal_view_id {
+        if let BlocklistAIHistoryEvent::UpdatedTodoList { owner_id } = event {
+            if *owner_id == self.terminal_view_id {
                 ctx.notify();
             }
         }

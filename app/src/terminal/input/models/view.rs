@@ -186,7 +186,7 @@ impl InlineModelSelectorView {
                     let history = BlocklistAIHistoryModel::as_ref(app);
 
                     let main_agent_in_progress = history
-                        .active_conversation(terminal_view_id)
+                        .active_conversation(terminal_view_id.into())
                         .is_some_and(|c| !c.is_empty() && c.status().is_in_progress());
                     let is_cli_agent_in_control_or_tagged_in =
                         cli_ctrl.as_ref(app).is_agent_in_control_or_tagged_in();
@@ -337,11 +337,11 @@ impl InlineModelSelectorView {
             &BlocklistAIHistoryModel::handle(ctx),
             move |me, _, event, ctx| {
                 if let BlocklistAIHistoryEvent::UpdatedConversationStatus {
-                    terminal_view_id: event_terminal_view_id,
+                    owner_id: event_owner_id,
                     ..
                 } = event
                 {
-                    if *event_terminal_view_id == terminal_view_id {
+                    if *event_owner_id == terminal_view_id {
                         me.menu_view.update(ctx, |_, ctx| ctx.notify());
                     }
                 }

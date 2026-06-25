@@ -86,8 +86,13 @@ fn execute_lazily_hydrates_missing_plan_for_remote_child_without_local_parent() 
         add_saved_plan_notebook(&mut app, document_id, "# Remote child plan");
         let child_conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let child_conversation_id =
-                    history.start_new_conversation(EntityId::new(), false, false, false, ctx);
+                let child_conversation_id = history.start_new_conversation(
+                    EntityId::new().into(),
+                    false,
+                    false,
+                    false,
+                    ctx,
+                );
                 history
                     .conversation_mut(&child_conversation_id)
                     .expect("child conversation should exist")

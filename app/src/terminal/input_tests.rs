@@ -1374,8 +1374,14 @@ fn queued_command_completion_preserves_draft() {
         let terminal_view_id = terminal.read(&app, |view, _| view.id());
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
-                history.set_active_conversation_id(id, terminal_view_id, ctx);
+                let id = history.start_new_conversation(
+                    terminal_view_id.into(),
+                    false,
+                    false,
+                    false,
+                    ctx,
+                );
+                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
                 id
             });
         QueuedQueryModel::handle(&app).update(&mut app, |model, _| {
@@ -1443,8 +1449,8 @@ fn row_deleted_event_preserves_existing_draft() {
 /// prompts panel (and the empty-buffer Enter path) can resolve it.
 fn seed_active_conversation(app: &mut App, terminal_view_id: EntityId) -> AIConversationId {
     BlocklistAIHistoryModel::handle(app).update(app, |history, ctx| {
-        let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
-        history.set_active_conversation_id(id, terminal_view_id, ctx);
+        let id = history.start_new_conversation(terminal_view_id.into(), false, false, false, ctx);
+        history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
         id
     })
 }
@@ -1655,10 +1661,10 @@ fn seed_in_progress_conversation(
         history
             .conversation_mut(&conversation_id)
             .expect("conversation should exist")
-            .append_reassigned_exchange(&response_stream_id, exchange, terminal_view_id, ctx)
+            .append_reassigned_exchange(&response_stream_id, exchange, terminal_view_id.into(), ctx)
             .expect("exchange should append");
         history.update_conversation_status(
-            terminal_view_id,
+            terminal_view_id.into(),
             conversation_id,
             ConversationStatus::InProgress,
             ctx,

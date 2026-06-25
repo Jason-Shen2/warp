@@ -122,7 +122,7 @@ fn test_restored_conversation_emits_restored_kind() {
             model.handle_history_event(
                 &BlocklistAIHistoryEvent::UpdatedConversationStatus {
                     conversation_id: AIConversationId::new(),
-                    terminal_view_id: EntityId::new(),
+                    owner_id: EntityId::new().into(),
                     update: ConversationStatusUpdate::Restored,
                     new_status: ConversationStatus::Success,
                 },
@@ -147,7 +147,7 @@ fn test_status_transition_emits_status_set_with_filter_buckets() {
             model.handle_history_event(
                 &BlocklistAIHistoryEvent::UpdatedConversationStatus {
                     conversation_id: AIConversationId::new(),
-                    terminal_view_id: EntityId::new(),
+                    owner_id: EntityId::new().into(),
                     update: ConversationStatusUpdate::Changed {
                         prev_status: ConversationStatus::InProgress,
                     },
@@ -180,7 +180,7 @@ fn test_same_bucket_re_emission_emits_status_set_with_equal_filters() {
             model.handle_history_event(
                 &BlocklistAIHistoryEvent::UpdatedConversationStatus {
                     conversation_id: AIConversationId::new(),
-                    terminal_view_id: EntityId::new(),
+                    owner_id: EntityId::new().into(),
                     update: ConversationStatusUpdate::Changed {
                         prev_status: ConversationStatus::InProgress,
                     },
@@ -241,7 +241,7 @@ fn test_title_update_refreshes_shadowing_task_title() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
             model.apply_conversation_title(
                 conversation_id,
                 "Renamed conversation".to_string(),
@@ -259,7 +259,7 @@ fn test_title_update_refreshes_shadowing_task_title() {
         agent_model.update(&mut app, |model, ctx| {
             model.handle_history_event(
                 &BlocklistAIHistoryEvent::UpdatedConversationTitle {
-                    terminal_view_id: Some(terminal_view_id),
+                    owner_id: Some(terminal_view_id.into()),
                     conversation_id,
                     title: "Renamed conversation".to_string(),
                 },
@@ -347,9 +347,9 @@ fn test_display_status_uses_matching_conversation_for_in_progress_task() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
             model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::Success,
                 ctx,
@@ -403,9 +403,9 @@ fn test_display_status_uses_active_execution_over_previous_conversation_status()
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
             model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::Success,
                 ctx,
@@ -466,9 +466,9 @@ fn test_display_status_updates_when_blocked_conversation_resumes() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
             model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::Blocked {
                     blocked_action: "waiting for approval".to_string(),
@@ -492,7 +492,7 @@ fn test_display_status_updates_when_blocked_conversation_resumes() {
 
         history_model.update(&mut app, |model, ctx| {
             model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::InProgress,
                 ctx,
@@ -545,9 +545,9 @@ fn test_display_status_terminal_task_state_overrides_matching_conversation() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
             model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::Error,
                 ctx,
@@ -600,9 +600,9 @@ fn test_status_filter_uses_display_status_for_task_backed_conversations() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
             model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::Success,
                 ctx,
@@ -931,7 +931,7 @@ fn test_get_entries_merges_task_and_local_conversation_by_run_id() {
         );
 
         BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let mut model = create_test_model();
@@ -986,7 +986,7 @@ fn test_get_entries_merges_task_and_local_conversation_by_server_token() {
         );
 
         BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let mut model = create_test_model();
@@ -1194,7 +1194,7 @@ fn test_resolve_open_action_returns_none_for_active_unattachable_session() {
         );
 
         BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let mut task = create_test_task(&task_id, "user-a", now);
@@ -1480,7 +1480,7 @@ fn test_server_token_assignment_updates_copy_link_resolution() {
         );
 
         BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let agent_model = app.add_singleton_model(|_| {
@@ -1522,7 +1522,7 @@ fn test_server_token_assignment_updates_copy_link_resolution() {
             model.handle_history_event(
                 &BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
                     conversation_id,
-                    terminal_view_id,
+                    owner_id: terminal_view_id.into(),
                 },
                 ctx,
             );
@@ -1642,7 +1642,7 @@ fn test_resolve_copy_link_uses_attached_synced_conversation_for_task_without_tok
         );
 
         BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let mut task = create_test_task(&task_id, "user-a", Utc::now());
@@ -1969,7 +1969,7 @@ fn test_get_entries_prefers_task_when_task_id_matches_conversation_run_id() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let mut model = create_test_model();
@@ -2030,7 +2030,7 @@ fn test_get_entries_prefers_task_when_server_token_matches() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let mut model = create_test_model();

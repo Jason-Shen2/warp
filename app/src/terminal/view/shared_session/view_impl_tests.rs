@@ -600,7 +600,7 @@ fn insert_cloud_mode_task_with_server_metadata(
     });
     BlocklistAIHistoryModel::handle(app).update(app, |model, ctx| {
         let conversation_id =
-            model.start_new_conversation(terminal_view_id, false, false, false, ctx);
+            model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx);
         model.set_server_conversation_token_for_conversation(
             conversation_id,
             conversation_token.clone(),
@@ -769,13 +769,17 @@ fn test_child_shared_session_link_keeps_default_conversation_details_auto_open()
         terminal.update(&mut app, |view, ctx| {
             let parent_conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                    history_model.start_new_conversation(view.id(), false, false, false, ctx)
+                    history_model.start_new_conversation(view.id().into(), false, false, false, ctx)
                 });
             let mut child_conversation = AIConversation::new(true, false);
             child_conversation.set_parent_conversation_id(parent_conversation_id);
             child_conversation.set_task_id(task_id);
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                history_model.restore_conversations(view.id(), vec![child_conversation], ctx);
+                history_model.restore_conversations(
+                    view.id().into(),
+                    vec![child_conversation],
+                    ctx,
+                );
             });
 
             view.maybe_auto_open_conversation_details_panel(ctx);
@@ -1858,7 +1862,7 @@ fn test_shared_followup_on_existing_conversation_converts_user_query_input() {
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
                 let conversation_id =
-                    model.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                    model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx);
                 model.set_server_conversation_token_for_conversation(
                     conversation_id,
                     conversation_token.to_string(),
@@ -2058,16 +2062,16 @@ fn test_on_ambient_agent_execution_ended_refreshes_open_details_panel_to_termina
         });
         BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
             let conversation_id =
-                model.start_new_conversation(terminal.id(), false, false, false, ctx);
+                model.start_new_conversation(terminal.id().into(), false, false, false, ctx);
             model.assign_run_id_for_conversation(
                 conversation_id,
                 task_id.to_string(),
                 Some(task_id),
-                terminal.id(),
+                terminal.id().into(),
                 ctx,
             );
             model.update_conversation_status(
-                terminal.id(),
+                terminal.id().into(),
                 conversation_id,
                 ConversationStatus::Success,
                 ctx,

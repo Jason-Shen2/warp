@@ -54,9 +54,9 @@ fn build_manager_with_registered_ovm(app: &mut App) -> (TerminalManager, Ambient
     // conversation id, marked active for the view).
     let history = BlocklistAIHistoryModel::handle(app);
     history.update(app, |history, ctx| {
-        let id = history.start_new_conversation(terminal_view_id, false, true, false, ctx);
+        let id = history.start_new_conversation(terminal_view_id.into(), false, true, false, ctx);
         history.set_viewing_shared_session_for_conversation(id, true);
-        history.set_active_conversation_id(id, terminal_view_id, ctx);
+        history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
     });
 
     // The OVM registers with the streamer on construction (streamer flag
@@ -111,8 +111,14 @@ fn command_execution_request_failed_clears_queued_command_in_flight() {
         let terminal_view_id = terminal.id();
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
-                history.set_active_conversation_id(id, terminal_view_id, ctx);
+                let id = history.start_new_conversation(
+                    terminal_view_id.into(),
+                    false,
+                    false,
+                    false,
+                    ctx,
+                );
+                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
                 id
             });
         QueuedQueryModel::handle(&app).update(&mut app, |model, _ctx| {

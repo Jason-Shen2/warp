@@ -101,7 +101,7 @@ fn setup_app_with_creator(
     });
     BlocklistAIHistoryModel::handle(app).update(app, |model, ctx| {
         let conversation_id =
-            model.start_new_conversation(terminal_view_id, false, false, false, ctx);
+            model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx);
         model.set_server_conversation_token_for_conversation(
             conversation_id,
             CONVERSATION_TOKEN.to_string(),

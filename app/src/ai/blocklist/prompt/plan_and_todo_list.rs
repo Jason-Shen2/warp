@@ -96,10 +96,7 @@ impl PlanAndTodoListView {
         ctx.subscribe_to_model(
             &BlocklistAIHistoryModel::handle(ctx),
             |me, _, event, ctx| {
-                if event
-                    .terminal_view_id()
-                    .is_some_and(|id| id != me.terminal_view_id)
-                {
+                if event.owner_id().is_some_and(|id| id != me.terminal_view_id) {
                     return;
                 }
                 // Note: UpdatedStreamingExchange is not needed here because plan/todo
@@ -108,7 +105,7 @@ impl PlanAndTodoListView {
                 match event.clone() {
                     BlocklistAIHistoryEvent::StartedNewConversation { .. }
                     | BlocklistAIHistoryEvent::SetActiveConversation { .. }
-                    | BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. }
+                    | BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. }
                     | BlocklistAIHistoryEvent::AppendedExchange { .. }
                     | BlocklistAIHistoryEvent::UpdatedTodoList { .. } => {
                         ctx.notify();

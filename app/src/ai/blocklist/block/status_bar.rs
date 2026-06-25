@@ -149,10 +149,7 @@ impl BlocklistAIStatusBar {
     ) -> Self {
         let history_model = BlocklistAIHistoryModel::handle(ctx);
         ctx.subscribe_to_model(&history_model, move |me, _, event, ctx| {
-            if event
-                .terminal_view_id()
-                .is_some_and(|id| id != terminal_view_id)
-            {
+            if event.owner_id().is_some_and(|id| id != terminal_view_id) {
                 return;
             }
             match event {
@@ -167,7 +164,7 @@ impl BlocklistAIStatusBar {
                     }
                     me.reset_model_for_exchange(*exchange_id, *conversation_id, ctx);
                 }
-                BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. } => {
+                BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. } => {
                     me.active_exchange_model = None;
                     ctx.notify();
                 }

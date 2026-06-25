@@ -161,7 +161,7 @@ impl BlocklistAIController {
             })
             .unwrap_or_else(|| {
                 history.update(ctx, |h, ctx| {
-                    h.start_new_conversation(terminal_view_id, false, true, false, ctx)
+                    h.start_new_conversation(terminal_view_id.into(), false, true, false, ctx)
                 })
             });
         if self.should_skip_replayed_response_for_existing_conversation(
@@ -209,26 +209,30 @@ impl BlocklistAIController {
                     ctx,
                 ),
                 stream_id.clone(),
-                self.terminal_view_id,
+                self.terminal_view_id.into(),
                 ctx,
             );
 
             history_model.initialize_output_for_response_stream(
                 &stream_id,
                 conversation_id,
-                self.terminal_view_id,
+                self.terminal_view_id.into(),
                 init_event.clone(),
                 ctx,
             );
 
             // Mark conversation as in progress and active/selected
             history_model.update_conversation_status(
-                self.terminal_view_id,
+                self.terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::InProgress,
                 ctx,
             );
-            history_model.set_active_conversation_id(conversation_id, self.terminal_view_id, ctx);
+            history_model.set_active_conversation_id(
+                conversation_id,
+                self.terminal_view_id.into(),
+                ctx,
+            );
         });
         self.context_model.update(ctx, |context_model, ctx| {
             context_model.set_pending_query_state_for_existing_conversation(
@@ -320,7 +324,7 @@ impl BlocklistAIController {
                 &stream_id,
                 actions.actions,
                 conversation_id,
-                self.terminal_view_id,
+                self.terminal_view_id.into(),
                 &skill_path_origin,
                 ctx,
             ) {
@@ -476,7 +480,7 @@ impl BlocklistAIController {
         let history = BlocklistAIHistoryModel::handle(ctx);
         history
             .as_ref(ctx)
-            .all_live_conversations_for_terminal_view(self.terminal_view_id)
+            .all_live_conversations_for_owner(self.terminal_view_id.into())
             .find_map(|conv| {
                 conv.server_conversation_token()
                     .and_then(|t| (t.as_str() == server_token).then_some(conv.id()))

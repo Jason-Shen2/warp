@@ -2980,7 +2980,7 @@ impl AgentDriver {
         let mut written_conversation_id = false;
 
         ctx.subscribe_to_model(&history_model_handle, move |me, _, event, ctx| {
-            if event.terminal_view_id().is_some_and(|id| id != terminal_id) {
+            if event.owner_id().is_some_and(|id| id != terminal_id) {
                 return;
             }
 
@@ -3091,7 +3091,7 @@ impl AgentDriver {
 
                 }
 
-                BlocklistAIHistoryEvent::UpdatedConversationStatus { terminal_view_id: conversation_terminal_id, conversation_id, .. } => {
+                BlocklistAIHistoryEvent::UpdatedConversationStatus { owner_id: conversation_terminal_id, conversation_id, .. } => {
                     if *conversation_terminal_id != terminal_id {
                         return;
                     }
@@ -3210,7 +3210,7 @@ impl AgentDriver {
                 }
                 BlocklistAIHistoryEvent::StartedNewConversation { .. }
                 | BlocklistAIHistoryEvent::ReassignedExchange { .. }
-                | BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. }
+                | BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. }
                 | BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { .. }
                 | BlocklistAIHistoryEvent::SplitConversation { .. }
                 | BlocklistAIHistoryEvent::RemoveConversation { .. }

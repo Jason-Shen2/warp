@@ -234,10 +234,13 @@ impl EventLoop {
 
                                     // Try to map the action back to its owning conversation.
                                     history
-                                        .conversation_id_for_action(&action_id, terminal_view_id)
+                                        .conversation_id_for_action(
+                                            &action_id,
+                                            terminal_view_id.into(),
+                                        )
                                         // Fallback to active conversation if no exact match is found.
                                         .or_else(|| {
-                                            history.active_conversation_id(terminal_view_id)
+                                            history.active_conversation_id(terminal_view_id.into())
                                         })
                                 })
                             })

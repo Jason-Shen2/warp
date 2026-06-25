@@ -911,7 +911,7 @@ fn restore_conversation_in_active_pane_enters_existing_live_conversation_without
         let terminal_view_id = terminal_view.read(&app, |view, _| view.view_id());
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                history.start_new_conversation(terminal_view_id, false, false, false, ctx)
+                history.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
             });
 
         workspace.update(&mut app, |workspace, ctx| {
@@ -923,7 +923,10 @@ fn restore_conversation_in_active_pane_enters_existing_live_conversation_without
         });
 
         terminal_view.read(&app, |view, ctx| {
-            assert_eq!(view.active_conversation_id(ctx), Some(conversation_id));
+            assert_eq!(
+                view.agent_view_state().active_conversation_id(),
+                Some(conversation_id)
+            );
             assert_eq!(
                 view.model.lock().conversation_transcript_viewer_status(),
                 None

@@ -150,7 +150,7 @@ impl WaitForEventsExecutor {
         let terminal_view_id = self.terminal_view_id;
         BlocklistAIHistoryModel::handle(ctx).update(ctx, move |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::WaitingForEvents,
                 ctx,

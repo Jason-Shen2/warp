@@ -127,7 +127,7 @@ impl SlashCommandRequest {
             return;
         }
         let active_conversation_id = BlocklistAIHistoryModel::as_ref(ctx)
-            .active_conversation_id(controller.terminal_view_id);
+            .active_conversation_id(controller.terminal_view_id.into());
 
         // If no existing conversation, create a new one.
         // When AgentView is enabled, enter agent view which creates the conversation

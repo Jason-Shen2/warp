@@ -279,7 +279,7 @@ impl SlashCommandDataSource {
             true
         } else {
             BlocklistAIHistoryModel::as_ref(ctx)
-                .active_conversation(self.terminal_view_id)
+                .active_conversation(self.terminal_view_id.into())
                 .is_some()
         };
         if has_active_conversation {
@@ -424,11 +424,15 @@ impl SlashCommandDataSource {
     /// command. Conversations without a `task_id` are local and never qualify.
     #[cfg(not(target_family = "wasm"))]
     fn active_conversation_is_cloud_oz(&self, ctx: &AppContext) -> bool {
-        let agent_view_state = self.agent_view_controller.as_ref(ctx).agent_view_state();
-        let conversation_id = match agent_view_state.active_conversation_id() {
+        let conversation_id = match self
+            .agent_view_controller
+            .as_ref(ctx)
+            .agent_view_state()
+            .active_conversation_id()
+        {
             Some(id) => id,
             None => match BlocklistAIHistoryModel::as_ref(ctx)
-                .active_conversation(self.terminal_view_id)
+                .active_conversation(self.terminal_view_id.into())
             {
                 Some(conv) => conv.id(),
                 None => return false,

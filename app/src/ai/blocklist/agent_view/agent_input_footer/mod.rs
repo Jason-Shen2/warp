@@ -176,7 +176,7 @@ fn is_conversation_transcript_context(
 ) -> bool {
     terminal_model.is_conversation_transcript_viewer()
         || BlocklistAIHistoryModel::as_ref(app)
-            .active_conversation(terminal_view_id)
+            .active_conversation(terminal_view_id.into())
             .is_some_and(|conversation| {
                 conversation.is_viewing_shared_session() || conversation.is_cli_agent_transcript()
             })
@@ -776,10 +776,7 @@ impl AgentInputFooter {
         ctx.subscribe_to_model(
             &BlocklistAIHistoryModel::handle(ctx),
             |me, _, event, ctx| {
-                if event
-                    .terminal_view_id()
-                    .is_some_and(|id| id != me.terminal_view_id)
-                {
+                if event.owner_id().is_some_and(|id| id != me.terminal_view_id) {
                     return;
                 }
                 me.update_ftu_callout_render_state(ctx);
@@ -788,7 +785,7 @@ impl AgentInputFooter {
                     BlocklistAIHistoryEvent::StartedNewConversation { .. }
                     | BlocklistAIHistoryEvent::SetActiveConversation { .. }
                     | BlocklistAIHistoryEvent::ClearedActiveConversation { .. }
-                    | BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. }
+                    | BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. }
                     | BlocklistAIHistoryEvent::RemoveConversation { .. }
                     | BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { .. } => {
                         me.sync_fast_forward_button(ctx);
@@ -1974,7 +1971,7 @@ impl AgentInputFooter {
         // Read directly from the conversation, same data source as the warping
         // indicator footer's auto-approve chip.
         let is_active = BlocklistAIHistoryModel::as_ref(ctx)
-            .active_conversation(self.terminal_view_id)
+            .active_conversation(self.terminal_view_id.into())
             .map(|c| c.autoexecute_any_action())
             .unwrap_or(false)
             || is_force_enabled;
@@ -2020,7 +2017,7 @@ impl AgentInputFooter {
 
     fn update_context_window_button(&mut self, ctx: &mut ViewContext<Self>) {
         if let Some(conversation) =
-            BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.terminal_view_id)
+            BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.terminal_view_id.into())
         {
             let usage = conversation.context_window_usage();
             let icon = icon_for_context_window_usage(usage);
@@ -2142,7 +2139,7 @@ impl AgentInputFooter {
             AgentToolbarItemKind::ContextWindowUsage => {
                 let has_conversation = FeatureFlag::ContextWindowUsageV2.is_enabled()
                     && BlocklistAIHistoryModel::as_ref(app)
-                        .active_conversation(self.terminal_view_id)
+                        .active_conversation(self.terminal_view_id.into())
                         .is_some();
                 has_conversation.then(|| {
                     let chip = ChildView::new(&self.context_window_button).finish();

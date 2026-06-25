@@ -3450,14 +3450,14 @@ impl TerminalView {
                 &model_events_handle,
                 model.clone(),
                 terminal_view_id,
-                agent_view_controller.clone(),
+                Some(agent_view_controller.clone()),
                 ctx,
             )
         });
         let ai_input_model = ctx.add_model(|ctx| {
             let mut model = BlocklistAIInputModel::new(
                 model.clone(),
-                agent_view_controller.clone(),
+                Some(agent_view_controller.clone()),
                 ai_context_model.clone(),
                 terminal_view_id,
                 ctx,
@@ -3490,7 +3490,7 @@ impl TerminalView {
                 ai_context_model.clone(),
                 ai_action_model.clone(),
                 active_session.clone(),
-                agent_view_controller.clone(),
+                Some(agent_view_controller.clone()),
                 model.clone(),
                 terminal_view_id,
                 ctx,
@@ -4835,12 +4835,12 @@ impl TerminalView {
         let Some(parent_id) = parent_id else {
             return false;
         };
-        let parent_terminal_view_id = history.terminal_view_id_for_conversation(&parent_id);
+        let parent_terminal_view_id = history.owner_id_for_conversation(&parent_id);
 
         if let Some(parent_terminal_view_id) = parent_terminal_view_id {
             // Defer so it runs after in-flight event handling completes.
             ctx.dispatch_typed_action_deferred(WorkspaceAction::FocusTerminalViewInWorkspace {
-                terminal_view_id: parent_terminal_view_id,
+                terminal_view_id: parent_terminal_view_id.entity_id(),
             });
         } else {
             ctx.emit(Event::SwapPaneToConversation {
@@ -5984,20 +5984,26 @@ impl TerminalView {
             }
             | BlocklistAIHistoryEvent::UpdatedConversationTitle {
                 conversation_id, ..
-            } => history_model.terminal_view_id_for_conversation(conversation_id),
+            } => history_model
+                .owner_id_for_conversation(conversation_id)
+                .map(|id| id.entity_id()),
             BlocklistAIHistoryEvent::ReassignedExchange {
                 new_conversation_id,
                 ..
-            } => history_model.terminal_view_id_for_conversation(new_conversation_id),
+            } => history_model
+                .owner_id_for_conversation(new_conversation_id)
+                .map(|id| id.entity_id()),
             BlocklistAIHistoryEvent::UpdatedConversationMetadata {
                 conversation_id, ..
-            } => history_model.terminal_view_id_for_conversation(conversation_id),
+            } => history_model
+                .owner_id_for_conversation(conversation_id)
+                .map(|id| id.entity_id()),
             BlocklistAIHistoryEvent::StartedNewConversation { .. }
             | BlocklistAIHistoryEvent::CreatedSubtask { .. }
             | BlocklistAIHistoryEvent::UpgradedTask { .. }
             | BlocklistAIHistoryEvent::SetActiveConversation { .. }
             | BlocklistAIHistoryEvent::ClearedActiveConversation { .. }
-            | BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. }
+            | BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. }
             | BlocklistAIHistoryEvent::UpdatedTodoList { .. }
             | BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { .. }
             | BlocklistAIHistoryEvent::SplitConversation { .. }
@@ -6023,7 +6029,7 @@ impl TerminalView {
         let should_handle = match self.render_owner_for_ai_history_event(history_model_ref, event) {
             Some(owner_terminal_view_id) => owner_terminal_view_id == self.view_id,
             None => event
-                .terminal_view_id()
+                .owner_id()
                 .is_none_or(|terminal_view_id| terminal_view_id == self.view_id),
         };
         if !should_handle {
@@ -6455,7 +6461,7 @@ impl TerminalView {
             BlocklistAIHistoryEvent::UpdatedConversationTitle { .. } => {
                 self.update_pane_configuration(ctx);
             }
-            BlocklistAIHistoryEvent::ClearedConversationsInTerminalView {
+            BlocklistAIHistoryEvent::ClearedConversationsForOwner {
                 active_conversation_id,
                 ..
             } => {
@@ -6479,7 +6485,7 @@ impl TerminalView {
             }
             BlocklistAIHistoryEvent::ConversationOwnershipTransferred {
                 conversation_id,
-                previous_terminal_view_id,
+                previous_owner_id,
                 ..
             } => {
                 // The conversation has moved to another terminal view. We are
@@ -6488,7 +6494,7 @@ impl TerminalView {
                 // rendered blocks tagged to this conversation. Leave the
                 // agent-view entry in place so the user can click it to
                 // navigate to the current owner pane later.
-                if *previous_terminal_view_id != self.view_id {
+                if *previous_owner_id != self.view_id {
                     return;
                 }
                 let view_ids_to_remove = self
@@ -6633,7 +6639,7 @@ impl TerminalView {
                     {
                         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                             history_model.set_exchange_hidden_status(
-                                self.view_id,
+                                self.view_id.into(),
                                 result_conversation_id,
                                 result_exchange_id,
                                 true,
@@ -7232,7 +7238,7 @@ impl TerminalView {
                         let history_model = BlocklistAIHistoryModel::handle(ctx);
                         if let Some(conversation_id) = history_model
                             .as_ref(ctx)
-                            .conversation_id_for_action(action_id, ctx.view_id())
+                            .conversation_id_for_action(action_id, ctx.view_id().into())
                         {
                             let already_opened = history_model
                                 .as_ref(ctx)
@@ -7388,7 +7394,7 @@ impl TerminalView {
 
                 let history_model = BlocklistAIHistoryModel::as_ref(ctx);
                 let Some(conversation) = history_model
-                    .conversation_id_for_action(action_id, ctx.view_id())
+                    .conversation_id_for_action(action_id, ctx.view_id().into())
                     .and_then(|id| history_model.conversation(&id))
                 else {
                     safe_error!(
@@ -7930,7 +7936,7 @@ impl TerminalView {
         self.ambient_agent_task_id_for_details_panel_from_model(model, app)
             .is_some()
             || BlocklistAIHistoryModel::as_ref(app)
-                .active_conversation(self.view_id)
+                .active_conversation(self.view_id.into())
                 .is_some_and(|conversation| !conversation.is_empty())
     }
 
@@ -8503,7 +8509,7 @@ impl TerminalView {
             .agent_view_state()
             .active_conversation_id();
         let history_active_conversation_id =
-            BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.view_id);
+            BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.view_id.into());
 
         let should_interrupt_active_command = {
             let mut model = self.model.lock();
@@ -8530,7 +8536,7 @@ impl TerminalView {
         if !had_active_stream {
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                 history.update_conversation_status(
-                    self.view_id,
+                    self.view_id.into(),
                     conversation_id,
                     ConversationStatus::Cancelled,
                     ctx,
@@ -8781,7 +8787,7 @@ impl TerminalView {
         }
 
         let history_model = BlocklistAIHistoryModel::as_ref(app);
-        if let Some(conversation) = history_model.active_conversation(self.view_id) {
+        if let Some(conversation) = history_model.active_conversation(self.view_id.into()) {
             let is_new_empty_conversation = self
                 .agent_view_controller
                 .as_ref(app)
@@ -8832,7 +8838,7 @@ impl TerminalView {
         if self.active_ai_block(ctx).is_some() {
             self.cancel_active_conversation_via_status_bar(ctx);
         } else if BlocklistAIHistoryModel::as_ref(ctx)
-            .active_conversation(self.view_id)
+            .active_conversation(self.view_id.into())
             .is_some_and(|c| c.status().is_in_progress())
         {
             // No unfinished AI block, but the conversation is still in progress.
@@ -9308,7 +9314,7 @@ impl TerminalView {
             content_element_size,
             self.input_size_at_last_frame(app).unwrap_or_default(),
             if BlocklistAIHistoryModel::as_ref(app)
-                .active_conversation(self.view_id)
+                .active_conversation(self.view_id.into())
                 .is_some()
             {
                 AutoscrollBehavior::WhenScrolledToEnd
@@ -13164,7 +13170,7 @@ impl TerminalView {
         ctx: &AppContext,
     ) -> Option<AIConversationId> {
         if let Some(conversation_id) = BlocklistAIHistoryModel::as_ref(ctx)
-            .active_conversation(self.view_id)
+            .active_conversation(self.view_id.into())
             .and_then(|conversation| {
                 conversation
                     .is_child_agent_conversation()
@@ -13175,7 +13181,7 @@ impl TerminalView {
         }
 
         let mut child_conversation_ids = BlocklistAIHistoryModel::as_ref(ctx)
-            .all_live_conversations_for_terminal_view(self.view_id)
+            .all_live_conversations_for_owner(self.view_id.into())
             .filter(|conversation| conversation.is_child_agent_conversation())
             .map(|conversation| conversation.id());
         let child_conversation_id = child_conversation_ids.next()?;
@@ -13277,7 +13283,7 @@ impl TerminalView {
         if let Some(conversation_id) = self.child_conversation_id_for_cli_status_updates(ctx) {
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                 history_model.update_conversation_status(
-                    self.view_id,
+                    self.view_id.into(),
                     conversation_id,
                     status.to_conversation_status(),
                     ctx,
@@ -13880,7 +13886,13 @@ impl TerminalView {
         } else {
             Some(
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                    history_model.start_new_conversation(self.view_id, false, false, false, ctx)
+                    history_model.start_new_conversation(
+                        self.view_id.into(),
+                        false,
+                        false,
+                        false,
+                        ctx,
+                    )
                 }),
             )
         }) else {
@@ -13914,7 +13926,7 @@ impl TerminalView {
                     // without this we'd see an "in progress" conversation.
                     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                         history.update_conversation_status(
-                            me.view_id,
+                            me.view_id.into(),
                             conversation_id,
                             ConversationStatus::Cancelled,
                             ctx,
@@ -13932,7 +13944,7 @@ impl TerminalView {
                     // without this we'd see an "in progress" conversation.
                     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                         history.update_conversation_status(
-                            me.view_id,
+                            me.view_id.into(),
                             conversation_id,
                             ConversationStatus::Success,
                             ctx,
@@ -18819,7 +18831,7 @@ impl TerminalView {
         // When we clear the blocklist, the user can't see past AI exchanges anymore, so these conversations should no longer
         // appear active for the terminal view anymore.
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |ai_history_model, ctx| {
-            ai_history_model.clear_conversations_in_terminal_view(self.view_id, ctx)
+            ai_history_model.clear_conversations_for_owner(self.view_id.into(), ctx)
         });
 
         // No more restored blocks, since we just cleared the buffer
@@ -20172,7 +20184,7 @@ impl TerminalView {
                         .active_conversation_id()
                         .or_else(|| {
                             BlocklistAIHistoryModel::as_ref(ctx)
-                                .active_conversation(self.view_id)
+                                .active_conversation(self.view_id.into())
                                 .map(|conv| conv.id())
                         });
                     fork_button_action(conversation_id, is_cloud_agent_context, ctx).command_name
@@ -22244,35 +22256,36 @@ impl TerminalView {
         // exchange across all conversations (rather than the most-recently-
         // *created* conversation) and enter the conversation that owns it.
         let history = BlocklistAIHistoryModel::as_ref(ctx);
-        let (conversation_id, exchange_id) =
-            if let Some(active_conversation_id) = history.active_conversation_id(self.id()) {
-                // Resolve the target exchange from the conversation model rather than
-                // from the currently-mounted blocks: when entering from the terminal
-                // the blocks mount over later frames, so the latest block may not
-                // exist yet this tick. Use the latest *visible* exchange so we land on
-                // a block that actually renders (skipping passive/hidden exchanges).
-                let Some(exchange_id) = history
-                    .conversation(&active_conversation_id)
-                    .and_then(|conversation| conversation.latest_visible_exchange())
-                    .map(|exchange| exchange.id)
-                else {
-                    return;
-                };
-                (active_conversation_id, exchange_id)
-            } else {
-                let Some(exchange_id) = history
-                    .latest_exchange_across_all_conversations(self.id())
-                    .map(|exchange| exchange.id)
-                else {
-                    return;
-                };
-                let Some(conversation_id) =
-                    history.conversation_id_for_exchange(exchange_id, self.id())
-                else {
-                    return;
-                };
-                (conversation_id, exchange_id)
+        let (conversation_id, exchange_id) = if let Some(active_conversation_id) =
+            history.active_conversation_id(self.id().into())
+        {
+            // Resolve the target exchange from the conversation model rather than
+            // from the currently-mounted blocks: when entering from the terminal
+            // the blocks mount over later frames, so the latest block may not
+            // exist yet this tick. Use the latest *visible* exchange so we land on
+            // a block that actually renders (skipping passive/hidden exchanges).
+            let Some(exchange_id) = history
+                .conversation(&active_conversation_id)
+                .and_then(|conversation| conversation.latest_visible_exchange())
+                .map(|exchange| exchange.id)
+            else {
+                return;
             };
+            (active_conversation_id, exchange_id)
+        } else {
+            let Some(exchange_id) = history
+                .latest_exchange_across_all_conversations(self.id().into())
+                .map(|exchange| exchange.id)
+            else {
+                return;
+            };
+            let Some(conversation_id) =
+                history.conversation_id_for_exchange(exchange_id, self.id().into())
+            else {
+                return;
+            };
+            (conversation_id, exchange_id)
+        };
         // Only re-enter the agent view when we're not already in this
         // conversation's view; re-entering when already there is needless churn.
         let already_in_view = self
@@ -22602,10 +22615,15 @@ impl TerminalView {
         let terminal_view_id = ctx.view_id();
         let mut new_conversation_id = None;
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, model_ctx| {
-            let id =
-                history.start_new_conversation(terminal_view_id, false, false, false, model_ctx);
+            let id = history.start_new_conversation(
+                terminal_view_id.into(),
+                false,
+                false,
+                false,
+                model_ctx,
+            );
             // Mark it active for good measure (not strictly required for rendering).
-            history.set_active_conversation_id(id, terminal_view_id, model_ctx);
+            history.set_active_conversation_id(id, terminal_view_id.into(), model_ctx);
             new_conversation_id = Some(id);
         });
         let conversation_id = new_conversation_id.expect("conversation created for dummy AI block");
@@ -26908,8 +26926,8 @@ impl TypedActionView for TerminalView {
                 ctx.notify();
             }
             ToggleQueueNextPrompt => {
-                let Some(conversation_id) =
-                    BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.view_id)
+                let Some(conversation_id) = BlocklistAIHistoryModel::as_ref(ctx)
+                    .active_conversation_id(self.view_id.into())
                 else {
                     return;
                 };
@@ -26950,7 +26968,7 @@ impl TypedActionView for TerminalView {
                         .agent_view_state()
                         .active_conversation_id()
                 } else {
-                    BlocklistAIHistoryModel::as_ref(ctx).last_conversation_id(self.id())
+                    BlocklistAIHistoryModel::as_ref(ctx).last_conversation_id(self.id().into())
                 };
                 if let Some(conversation_id) = conversation_id {
                     self.handle_resume_conversation(&conversation_id, ctx)
@@ -26964,7 +26982,7 @@ impl TypedActionView for TerminalView {
                         .active_conversation_id()
                         .and_then(|id| BlocklistAIHistoryModel::as_ref(ctx).conversation(&id))
                 } else {
-                    BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.id())
+                    BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.id().into())
                 };
                 if let Some(active_conversation) = active_conversation {
                     let conversation_id = active_conversation.id();
@@ -26993,7 +27011,7 @@ impl TypedActionView for TerminalView {
             }
             ToggleAIDocumentPane => {
                 if let Some(conversation) =
-                    BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.id())
+                    BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.id().into())
                 {
                     let conversation_id = conversation.id();
                     let doc_model = AIDocumentModel::as_ref(ctx);
@@ -28082,7 +28100,7 @@ impl View for TerminalView {
                 .active_conversation_id()
                 .and_then(|id| BlocklistAIHistoryModel::as_ref(app).conversation(&id))
         } else {
-            BlocklistAIHistoryModel::as_ref(app).active_conversation(self.id())
+            BlocklistAIHistoryModel::as_ref(app).active_conversation(self.id().into())
         };
         // Set CanResumeConversation flag if the latest exchange (across all tasks,
         // including subtasks) was manually cancelled or finished with an error.

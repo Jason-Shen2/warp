@@ -428,7 +428,7 @@ fn start_parent_conversation_for_terminal_view(
     ctx: &mut ViewContext<PaneGroup>,
 ) -> AIConversationId {
     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-        history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
+        history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
     })
 }
 fn restore_conversation_for_terminal_view(
@@ -439,7 +439,7 @@ fn restore_conversation_for_terminal_view(
     let conversation_id = conversation.id();
 
     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-        history_model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+        history_model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
     });
 
     conversation_id
@@ -604,7 +604,9 @@ fn ambient_child_session_state(
         .terminal_view_from_pane_id(child_pane_id, ctx)
         .expect("child pane should have a terminal view");
     let terminal_view_ref = terminal_view.as_ref(ctx);
-    let active_conversation_id = terminal_view_ref.active_conversation_id(ctx);
+    let active_conversation_id = terminal_view_ref
+        .agent_view_state()
+        .active_conversation_id();
     let ambient_model = terminal_view_ref
         .ambient_agent_view_model()
         .expect("child pane should have an ambient agent model")
@@ -1131,7 +1133,7 @@ fn test_pane_group_restore_loop_keeps_orchestration_topology_and_materializes_ch
             let child_conversation_id = child_conversation.id();
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                 history.restore_conversations(
-                    parent_terminal_view_id,
+                    parent_terminal_view_id.into(),
                     vec![child_conversation],
                     ctx,
                 );
@@ -1140,14 +1142,14 @@ fn test_pane_group_restore_loop_keeps_orchestration_topology_and_materializes_ch
                     parent_conversation_id,
                     parent_run_id.clone(),
                     None,
-                    parent_terminal_view_id,
+                    parent_terminal_view_id.into(),
                     ctx,
                 );
                 history.assign_run_id_for_conversation(
                     child_conversation_id,
                     child_run_id.clone(),
                     None,
-                    parent_terminal_view_id,
+                    parent_terminal_view_id.into(),
                     ctx,
                 );
             });
@@ -1342,7 +1344,7 @@ fn test_ambient_transcript_restore_creates_cloud_mode_pane_when_handoff_enabled(
                 view.ambient_agent_task_id_for_details_panel(ctx),
                 Some(task_id)
             );
-            assert!(view.active_conversation_id(ctx).is_some());
+            assert!(view.agent_view_state().active_conversation_id().is_some());
 
             let model = view.model.lock();
             assert!(!model.is_conversation_transcript_viewer());
@@ -1893,7 +1895,7 @@ fn test_ensure_hidden_child_agent_pane_materializes_restored_remote_child_linked
                     parent_conversation_id,
                     parent_run_id.clone(),
                     None,
-                    parent_terminal_view_id,
+                    parent_terminal_view_id.into(),
                     ctx,
                 );
                 history_model
@@ -2019,8 +2021,8 @@ fn test_ensure_hidden_child_agent_pane_skips_child_owned_by_another_pane_group()
             assert_eq!(panes.pane_count(), initial_pane_count);
             assert_eq!(
                 BlocklistAIHistoryModel::as_ref(ctx)
-                    .terminal_view_id_for_conversation(&child_conversation_id),
-                Some(child_owner_terminal_view_id)
+                    .owner_id_for_conversation(&child_conversation_id),
+                Some(child_owner_terminal_view_id.into())
             );
         });
     });
@@ -2065,8 +2067,8 @@ fn test_entering_parent_agent_view_skips_child_owned_by_another_pane_group() {
             assert_eq!(panes.pane_count(), initial_pane_count);
             assert_eq!(
                 BlocklistAIHistoryModel::as_ref(ctx)
-                    .terminal_view_id_for_conversation(&child_conversation_id),
-                Some(child_owner_terminal_view_id)
+                    .owner_id_for_conversation(&child_conversation_id),
+                Some(child_owner_terminal_view_id.into())
             );
         });
     });

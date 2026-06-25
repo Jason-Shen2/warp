@@ -3187,7 +3187,7 @@ impl Input {
                     BlocklistAIHistoryEvent::UpdatedConversationStatus { .. }
                         | BlocklistAIHistoryEvent::SetActiveConversation { .. }
                         | BlocklistAIHistoryEvent::ClearedActiveConversation { .. }
-                        | BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. }
+                        | BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. }
                         | BlocklistAIHistoryEvent::StartedNewConversation { .. }
                         | BlocklistAIHistoryEvent::SplitConversation { .. }
                         | BlocklistAIHistoryEvent::AppendedExchange { .. }
@@ -3199,7 +3199,7 @@ impl Input {
                 if !affects_hint {
                     return;
                 }
-                if event.terminal_view_id() != Some(terminal_view_id) {
+                if event.owner_id() != Some(terminal_view_id.into()) {
                     return;
                 }
                 me.set_zero_state_hint_text(ctx);
@@ -3874,8 +3874,8 @@ impl Input {
 
     /// Returns whether the active queued prompt is being edited inline.
     fn is_editing_queued_prompt(&self, ctx: &AppContext) -> bool {
-        let Some(conversation_id) =
-            BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.terminal_view_id)
+        let Some(conversation_id) = BlocklistAIHistoryModel::as_ref(ctx)
+            .active_conversation_id(self.terminal_view_id.into())
         else {
             return false;
         };
@@ -4259,7 +4259,7 @@ impl Input {
     #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
     fn source_conversation_has_content(&self, ctx: &AppContext) -> bool {
         BlocklistAIHistoryModel::as_ref(ctx)
-            .active_conversation(self.terminal_view_id)
+            .active_conversation(self.terminal_view_id.into())
             .is_some_and(|c| !c.is_empty())
     }
 
@@ -5606,7 +5606,7 @@ impl Input {
         let history = BlocklistAIHistoryModel::handle(ctx);
         let Some(conversation) = history
             .as_ref(ctx)
-            .active_conversation(self.terminal_view_id)
+            .active_conversation(self.terminal_view_id.into())
         else {
             let window_id = ctx.window_id();
             ToastStack::handle(ctx).update(ctx, |toast_stack, ctx| {
@@ -5921,7 +5921,7 @@ impl Input {
     ) {
         self.ai_controller.update(ctx, |controller, ctx| {
             let active_conversation_id = BlocklistAIHistoryModel::as_ref(ctx)
-                .active_conversation(self.terminal_view_id)
+                .active_conversation(self.terminal_view_id.into())
                 .filter(|conversation| conversation.status().is_in_progress())
                 .map(|conversation| conversation.id());
             if let Some(active_conversation_id) = active_conversation_id {
@@ -6704,7 +6704,7 @@ impl Input {
         }
         if self.prefix_mode(ctx) == InputPrefixMode::CloudHandoff {
             let conversation_is_empty = BlocklistAIHistoryModel::as_ref(ctx)
-                .active_conversation(self.terminal_view_id)
+                .active_conversation(self.terminal_view_id.into())
                 .is_none_or(|c| c.is_empty());
             let hint = if conversation_is_empty {
                 CLOUD_MODE_V2_HINT_TEXT.to_owned()
@@ -7409,7 +7409,7 @@ impl Input {
         ctx: &mut ViewContext<Self>,
     ) {
         let active_conversation =
-            BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.terminal_view_id);
+            BlocklistAIHistoryModel::as_ref(ctx).active_conversation(self.terminal_view_id.into());
 
         if self.model.lock().shared_session_status().is_viewer() {
             let server_conversation_token = active_conversation
@@ -13091,8 +13091,8 @@ impl Input {
             // An empty-buffer Enter sends the top queued row, mirroring its send-now button.
             // The locked initial cloud-mode head row is not sendable, so Enter does nothing
             // while it sits at the head of the queue.
-            let conversation_id =
-                BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.terminal_view_id);
+            let conversation_id = BlocklistAIHistoryModel::as_ref(ctx)
+                .active_conversation_id(self.terminal_view_id.into());
             let top_row = conversation_id.and_then(|conversation_id| {
                 QueuedQueryModel::as_ref(ctx)
                     .queue(conversation_id)
@@ -13365,7 +13365,7 @@ impl Input {
             // This is possible in persistent input mode.
             self.ai_controller.update(ctx, |controller, ctx| {
                 let active_conversation_id = BlocklistAIHistoryModel::as_ref(ctx)
-                    .active_conversation(self.terminal_view_id)
+                    .active_conversation(self.terminal_view_id.into())
                     .filter(|conversation| conversation.status().is_in_progress())
                     .map(|conversation| conversation.id());
                 if let Some(active_conversation_id) = active_conversation_id {
@@ -16006,7 +16006,7 @@ impl View for Input {
         }
 
         if BlocklistAIHistoryModel::as_ref(app)
-            .all_live_conversations_for_terminal_view(self.terminal_view_id)
+            .all_live_conversations_for_owner(self.terminal_view_id.into())
             .any(|conversation| conversation.initial_user_query().is_some())
         {
             ctx.set.insert("ActiveAIConversationHasHistory");

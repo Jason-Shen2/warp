@@ -239,7 +239,7 @@ fn test_from_task_includes_linked_directory_when_run_id_matches() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let task = create_test_task(task_id);
@@ -382,7 +382,7 @@ fn test_from_conversation_populates_local_conversation_fields() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         app.update(|ctx| {
@@ -453,7 +453,7 @@ fn test_from_task_includes_linked_directory_when_server_token_matches() {
         );
 
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.restore_conversations(EntityId::new().into(), vec![conversation], ctx);
         });
 
         let mut task = create_test_task("550e8400-e29b-41d4-a716-000000004001");

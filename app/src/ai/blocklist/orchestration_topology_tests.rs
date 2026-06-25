@@ -40,11 +40,11 @@ fn descendant_conversation_ids_in_spawn_order_flattens_nested_children_preorder(
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
 
         let orchestrator_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
         });
         let child_a = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "oz-env-check".to_string(),
                 orchestrator_id,
                 None,
@@ -53,7 +53,7 @@ fn descendant_conversation_ids_in_spawn_order_flattens_nested_children_preorder(
         });
         let child_b = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "sibling-agent".to_string(),
                 orchestrator_id,
                 None,
@@ -62,7 +62,7 @@ fn descendant_conversation_ids_in_spawn_order_flattens_nested_children_preorder(
         });
         let grandchild_a1 = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "codex-child".to_string(),
                 child_a,
                 None,
@@ -71,7 +71,7 @@ fn descendant_conversation_ids_in_spawn_order_flattens_nested_children_preorder(
         });
         let grandchild_a2 = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "follow-up-child".to_string(),
                 child_a,
                 None,
@@ -80,7 +80,7 @@ fn descendant_conversation_ids_in_spawn_order_flattens_nested_children_preorder(
         });
         let grandchild_b1 = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "sibling-grandchild".to_string(),
                 child_b,
                 None,
@@ -111,11 +111,11 @@ fn adjacent_orchestration_child_navigation_uses_pinned_first_order() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
 
         let orchestrator_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
         });
         let child_a = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "child-a".to_string(),
                 orchestrator_id,
                 None,
@@ -124,7 +124,7 @@ fn adjacent_orchestration_child_navigation_uses_pinned_first_order() {
         });
         let child_b = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "child-b".to_string(),
                 orchestrator_id,
                 None,
@@ -133,7 +133,7 @@ fn adjacent_orchestration_child_navigation_uses_pinned_first_order() {
         });
         let child_c = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "child-c".to_string(),
                 orchestrator_id,
                 None,
@@ -192,19 +192,19 @@ fn orchestration_aware_status_uses_aggregated_status_for_known_parent() {
 
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::InProgress,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -230,10 +230,15 @@ fn orchestration_aware_status_uses_direct_status_for_non_parent() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let terminal_view_id = EntityId::new();
         let conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            let conversation_id =
-                history_model.start_new_conversation(terminal_view_id, false, false, false, ctx);
+            let conversation_id = history_model.start_new_conversation(
+                terminal_view_id.into(),
+                false,
+                false,
+                false,
+                ctx,
+            );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::Error,
                 ctx,
@@ -260,7 +265,7 @@ fn descendant_conversation_ids_in_spawn_order_returns_empty_without_children() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
 
         let orchestrator_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
         });
 
         history_model.read(&app, |history_model, _| {
@@ -338,11 +343,11 @@ fn adjacent_orchestration_child_navigation_noops_for_single_child() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
 
         let orchestrator_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
         });
         let child_id = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 "child".to_string(),
                 orchestrator_id,
                 None,
@@ -392,11 +397,11 @@ fn build_orchestrator_with_two_children(
 ) {
     let terminal_view_id = EntityId::new();
     let orchestrator_id = history_model.update(app, |history_model, ctx| {
-        history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
+        history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
     });
     let child_a = history_model.update(app, |history_model, ctx| {
         history_model.start_new_child_conversation(
-            terminal_view_id,
+            terminal_view_id.into(),
             "child-a".to_string(),
             orchestrator_id,
             None,
@@ -405,7 +410,7 @@ fn build_orchestrator_with_two_children(
     });
     let child_b = history_model.update(app, |history_model, ctx| {
         history_model.start_new_child_conversation(
-            terminal_view_id,
+            terminal_view_id.into(),
             "child-b".to_string(),
             orchestrator_id,
             None,
@@ -428,19 +433,19 @@ fn aggregated_status_is_in_progress_when_any_descendant_is_running() {
         // privilege the running child so the pill stays "in progress".
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::InProgress,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Error,
                 ctx,
@@ -469,13 +474,13 @@ fn aggregated_status_prefers_blocked_over_terminal_states() {
         // notices attention is needed somewhere in the tree.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Blocked {
                     blocked_action: "approve_command".to_string(),
@@ -483,7 +488,7 @@ fn aggregated_status_prefers_blocked_over_terminal_states() {
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Error,
                 ctx,
@@ -513,19 +518,19 @@ fn aggregated_status_falls_back_to_worst_terminal_outcome() {
         // over both Cancelled and Success.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Error,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Cancelled,
                 ctx,
@@ -551,19 +556,19 @@ fn aggregated_status_is_cancelled_when_no_errors_present() {
 
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Cancelled,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -589,19 +594,19 @@ fn aggregated_status_is_success_when_orchestrator_and_all_descendants_succeeded(
 
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -629,19 +634,19 @@ fn aggregated_status_respects_orchestrator_own_in_progress_state() {
         // aggregation must still report InProgress.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::InProgress,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -676,19 +681,19 @@ fn aggregated_status_is_waiting_when_orchestrator_yields_and_children_succeeded(
         // run is listening for inbound input.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::WaitingForEvents,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Success,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -715,19 +720,19 @@ fn aggregated_status_prefers_parent_waiting_over_descendant_in_progress() {
         // Parent waiting outranks descendant in-progress.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::WaitingForEvents,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::InProgress,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -756,19 +761,19 @@ fn aggregated_status_prefers_cancelled_parent_over_descendant_waiting_for_events
         // — the run can't resume on its own once the parent is finalized.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Cancelled,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::WaitingForEvents,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -796,19 +801,19 @@ fn aggregated_status_prefers_errored_parent_over_descendant_waiting_for_events()
         // a descendant WaitingForEvents.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::Error,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::WaitingForEvents,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -838,19 +843,19 @@ fn aggregated_status_returns_in_progress_when_parent_is_in_progress_too() {
         // is the original aggregation precedence).
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::InProgress,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::InProgress,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -879,13 +884,13 @@ fn aggregated_status_prefers_blocked_over_waiting_for_events() {
         // unblock the tree before it can make progress.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::WaitingForEvents,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Blocked {
                     blocked_action: "approve_command".to_string(),
@@ -893,7 +898,7 @@ fn aggregated_status_prefers_blocked_over_waiting_for_events() {
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,
@@ -925,19 +930,19 @@ fn aggregated_status_prefers_waiting_for_events_over_error() {
         // "Error" pill while the driver is still alive.
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 orchestrator_id,
                 ConversationStatus::WaitingForEvents,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_a,
                 ConversationStatus::Error,
                 ctx,
             );
             history_model.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 child_b,
                 ConversationStatus::Success,
                 ctx,

@@ -1271,10 +1271,7 @@ impl AIBlock {
         ctx.subscribe_to_model(
             &BlocklistAIHistoryModel::handle(ctx),
             |me, _, event, ctx| {
-                if event
-                    .terminal_view_id()
-                    .is_none_or(|id| id == me.terminal_view_id)
-                {
+                if event.owner_id().is_none_or(|id| id == me.terminal_view_id) {
                     match event {
                         BlocklistAIHistoryEvent::AppendedExchange { .. }
                         | BlocklistAIHistoryEvent::UpdatedTodoList { .. }
@@ -3045,7 +3042,7 @@ impl AIBlock {
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                 history.toggle_autoexecute_override(
                     &self.client_ids.conversation_id,
-                    self.terminal_view_id,
+                    self.terminal_view_id.into(),
                     ctx,
                 );
             });
@@ -3295,7 +3292,7 @@ impl AIBlock {
         if self.model.request_type(ctx).is_passive() {
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                 history.set_exchange_hidden_status(
-                    self.terminal_view_id,
+                    self.terminal_view_id.into(),
                     self.client_ids.conversation_id,
                     self.client_ids.client_exchange_id,
                     false,
@@ -4208,7 +4205,7 @@ impl AIBlock {
         self.unit_tests_suggestions.insert(action_id.clone(), view);
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
             history.set_exchange_hidden_status(
-                self.terminal_view_id,
+                self.terminal_view_id.into(),
                 self.client_ids.conversation_id,
                 self.client_ids.client_exchange_id,
                 false,
@@ -5517,7 +5514,7 @@ impl AIBlock {
         };
 
         let Some(conversation_id) =
-            history.conversation_id_for_exchange(exchange_id, self.terminal_view_id)
+            history.conversation_id_for_exchange(exchange_id, self.terminal_view_id.into())
         else {
             return self.get_prompt_text(app);
         };
@@ -5569,7 +5566,7 @@ impl AIBlock {
         };
 
         let Some(conversation_id) =
-            history.conversation_id_for_exchange(exchange_id, self.terminal_view_id)
+            history.conversation_id_for_exchange(exchange_id, self.terminal_view_id.into())
         else {
             return self.get_output_text(app);
         };

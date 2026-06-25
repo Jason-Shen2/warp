@@ -667,10 +667,8 @@ impl TerminalManager {
                     // are forced to be handled here
                     #[allow(clippy::single_match)]
                     match event {
-                        BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride {
-                            terminal_view_id,
-                        } => {
-                            if *terminal_view_id != view_id_for_auto {
+                        BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { owner_id } => {
+                            if *owner_id != view_id_for_auto {
                                 return;
                             }
 
@@ -828,7 +826,7 @@ impl TerminalManager {
                 if matches!(&source.source_type, SessionSourceType::AmbientAgent { .. }) {
                     let terminal_view_id = view.id();
                     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, _ctx| {
-                        history.mark_terminal_view_as_ambient_agent_session_view(terminal_view_id);
+                        history.mark_owner_as_ambient_agent_session_view(terminal_view_id.into());
                     });
 
                     // Register this ambient session as active for conversation list tracking.
@@ -1707,14 +1705,14 @@ impl TerminalManager {
         // When a shared session ends for a viewer, cancel any in-progress conversations.
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
             history_model
-                .all_live_conversations_for_terminal_view(terminal_view_id)
+                .all_live_conversations_for_owner(terminal_view_id.into())
                 .filter(|conversation| conversation.status().is_in_progress())
                 .map(|conversation| conversation.id())
                 .collect::<Vec<_>>()
                 .into_iter()
                 .for_each(|conversation_id| {
                     history_model.update_conversation_status(
-                        terminal_view_id,
+                        terminal_view_id.into(),
                         conversation_id,
                         ConversationStatus::Cancelled,
                         ctx,

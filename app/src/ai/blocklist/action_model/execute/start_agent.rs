@@ -290,7 +290,7 @@ impl StartAgentExecutor {
             | BlocklistAIHistoryEvent::UpdatedStreamingExchange { .. }
             | BlocklistAIHistoryEvent::SetActiveConversation { .. }
             | BlocklistAIHistoryEvent::ClearedActiveConversation { .. }
-            | BlocklistAIHistoryEvent::ClearedConversationsInTerminalView { .. }
+            | BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. }
             | BlocklistAIHistoryEvent::UpdatedTodoList { .. }
             | BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { .. }
             | BlocklistAIHistoryEvent::SplitConversation { .. }

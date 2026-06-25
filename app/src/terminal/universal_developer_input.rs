@@ -556,10 +556,7 @@ impl UniversalDeveloperInputButtonBar {
         ctx.subscribe_to_model(
             &BlocklistAIHistoryModel::handle(ctx),
             |me, _, event, ctx| {
-                if event
-                    .terminal_view_id()
-                    .is_some_and(|id| id != me.terminal_view_id)
-                {
+                if event.owner_id().is_some_and(|id| id != me.terminal_view_id) {
                     return;
                 }
 

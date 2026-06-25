@@ -773,7 +773,7 @@ impl BlocklistAIActionModel {
 
     /// Gets the active conversation ID for this terminal view.
     fn active_conversation_id(&self, app: &AppContext) -> Option<AIConversationId> {
-        BlocklistAIHistoryModel::as_ref(app).active_conversation_id(self.terminal_view_id)
+        BlocklistAIHistoryModel::as_ref(app).active_conversation_id(self.terminal_view_id.into())
     }
 
     fn update_conversation_in_progress_status(
@@ -783,7 +783,7 @@ impl BlocklistAIActionModel {
     ) {
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
             history_model.update_conversation_status(
-                self.terminal_view_id,
+                self.terminal_view_id.into(),
                 conversation_id,
                 ConversationStatus::InProgress,
                 ctx,
@@ -805,7 +805,7 @@ impl BlocklistAIActionModel {
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                 let blocked_action_user_friendly_str = action.action.user_friendly_name();
                 history_model.update_conversation_status(
-                    self.terminal_view_id,
+                    self.terminal_view_id.into(),
                     conversation_id,
                     ConversationStatus::Blocked {
                         blocked_action: format!("{blocked_action_user_friendly_str:?}"),
@@ -1305,7 +1305,7 @@ impl BlocklistAIActionModel {
                         ConversationStatus::InProgress
                     };
                     history_model.update_conversation_status(
-                        self.terminal_view_id,
+                        self.terminal_view_id.into(),
                         conversation_id,
                         status,
                         ctx,

@@ -115,7 +115,7 @@ impl<T: ?Sized + AIBlockModel> AIBlockModelHelper for T {
     ) -> bool {
         match (
             BlocklistAIHistoryModel::as_ref(app)
-                .latest_exchange_across_all_conversations(terminal_view_id),
+                .latest_exchange_across_all_conversations(terminal_view_id.into()),
             self.exchange_id(app),
         ) {
             (Some(latest_exchange), Some(id)) => latest_exchange.id == id,

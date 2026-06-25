@@ -483,7 +483,7 @@ impl CLISubagentController {
         ctx: &mut ModelContext<Self>,
     ) {
         if event
-            .terminal_view_id()
+            .owner_id()
             .is_some_and(|id| id != self.terminal_view_id)
         {
             return;

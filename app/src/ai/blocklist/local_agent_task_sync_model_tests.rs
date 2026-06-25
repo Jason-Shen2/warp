@@ -173,13 +173,17 @@ fn map_conversation_status_waiting_for_events_reports_in_progress_with_no_messag
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
         history_model.update(&mut app, |model, ctx| {
             let conv = model
                 .conversation_mut(&conversation_id)
                 .expect("conversation was just restored");
-            conv.update_status(ConversationStatus::WaitingForEvents, terminal_view_id, ctx);
+            conv.update_status(
+                ConversationStatus::WaitingForEvents,
+                terminal_view_id.into(),
+                ctx,
+            );
         });
 
         history_model.read(&app, |model, _| {
@@ -402,7 +406,7 @@ fn shared_session_link_fires_update_agent_task_with_session_id() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let (_model, counter) = install_model_with_call_counter(&mut app);
@@ -436,7 +440,7 @@ fn shared_session_link_uses_correct_argument_order() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         register_cli_agent_sessions_model(&mut app);
@@ -486,7 +490,7 @@ fn shared_session_link_skips_viewer_conversations() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let (_model, counter) = install_model_with_call_counter(&mut app);
@@ -519,7 +523,7 @@ fn shared_session_link_skips_remote_child_conversations() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let (_model, counter) = install_model_with_call_counter(&mut app);
@@ -551,7 +555,7 @@ fn shared_session_link_skips_when_task_id_missing() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let (_model, counter) = install_model_with_call_counter(&mut app);
@@ -612,7 +616,7 @@ fn conversation_server_token_assigned_fires_update_with_conversation_id() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         register_cli_agent_sessions_model(&mut app);
@@ -639,7 +643,7 @@ fn conversation_server_token_assigned_fires_update_with_conversation_id() {
         history_model.update(&mut app, |_, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
                 conversation_id,
-                terminal_view_id,
+                owner_id: terminal_view_id.into(),
             });
         });
 
@@ -660,7 +664,7 @@ fn conversation_server_token_assigned_skips_viewer_conversations() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let (_model, counter) = install_model_with_call_counter(&mut app);
@@ -668,7 +672,7 @@ fn conversation_server_token_assigned_skips_viewer_conversations() {
         history_model.update(&mut app, |_, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
                 conversation_id,
-                terminal_view_id,
+                owner_id: terminal_view_id.into(),
             });
         });
 
@@ -694,7 +698,7 @@ fn conversation_server_token_assigned_skips_remote_child_conversations() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let (_model, counter) = install_model_with_call_counter(&mut app);
@@ -702,7 +706,7 @@ fn conversation_server_token_assigned_skips_remote_child_conversations() {
         history_model.update(&mut app, |_, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
                 conversation_id,
-                terminal_view_id,
+                owner_id: terminal_view_id.into(),
             });
         });
 
@@ -726,7 +730,7 @@ fn conversation_server_token_assigned_skips_without_task_id() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
         });
 
         let (_model, counter) = install_model_with_call_counter(&mut app);
@@ -734,7 +738,7 @@ fn conversation_server_token_assigned_skips_without_task_id() {
         history_model.update(&mut app, |_, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
                 conversation_id,
-                terminal_view_id,
+                owner_id: terminal_view_id.into(),
             });
         });
 

@@ -850,8 +850,7 @@ impl OrchestrationPillBar {
         //     dispatch `WorkspaceAction::FocusTerminalViewInWorkspace`,
         //     which walks all tabs/windows and activates the
         //     containing tab as needed.
-        let owner_view_id =
-            BlocklistAIHistoryModel::as_ref(ctx).terminal_view_id_for_conversation(&id);
+        let owner_view_id = BlocklistAIHistoryModel::as_ref(ctx).owner_id_for_conversation(&id);
         let Some(owner_view_id) = owner_view_id else {
             log::warn!(
                 "navigate_to_owner_pane: no canonical owner for {id:?}; falling back to switch-in-place"
@@ -866,7 +865,8 @@ impl OrchestrationPillBar {
             return;
         };
         let self_pane_group_id = self.agent_view_controller.as_ref(ctx).pane_group_id();
-        let owner_pane_group_id = pane_group_id_containing_terminal_view(owner_view_id, ctx);
+        let owner_pane_group_id =
+            pane_group_id_containing_terminal_view(owner_view_id.entity_id(), ctx);
         if owner_pane_group_id.is_some() && owner_pane_group_id == self_pane_group_id {
             ctx.dispatch_typed_action(
                 &PaneHeaderAction::<TerminalAction, TerminalAction>::CustomAction(
@@ -877,7 +877,7 @@ impl OrchestrationPillBar {
             );
         } else {
             ctx.dispatch_typed_action(&WorkspaceAction::FocusTerminalViewInWorkspace {
-                terminal_view_id: owner_view_id,
+                terminal_view_id: owner_view_id.entity_id(),
             });
         }
     }
@@ -2449,11 +2449,12 @@ fn render_crumb(
         //     useful even after the orchestrator pane has been closed
         //     and the parent conversation only persists in history.
         if let Some(owner_view_id) =
-            BlocklistAIHistoryModel::as_ref(app).terminal_view_id_for_conversation(&conversation_id)
+            BlocklistAIHistoryModel::as_ref(app).owner_id_for_conversation(&conversation_id)
         {
             let self_pane_group_id =
                 pane_group_id_containing_terminal_view(self_terminal_view_id, app);
-            let owner_pane_group_id = pane_group_id_containing_terminal_view(owner_view_id, app);
+            let owner_pane_group_id =
+                pane_group_id_containing_terminal_view(owner_view_id.entity_id(), app);
             if owner_pane_group_id.is_some() && owner_pane_group_id == self_pane_group_id {
                 ctx.dispatch_typed_action(
                     PaneHeaderAction::<TerminalAction, TerminalAction>::CustomAction(
@@ -2463,7 +2464,7 @@ fn render_crumb(
                 return;
             }
             ctx.dispatch_typed_action(WorkspaceAction::FocusTerminalViewInWorkspace {
-                terminal_view_id: owner_view_id,
+                terminal_view_id: owner_view_id.entity_id(),
             });
             return;
         }

@@ -174,12 +174,10 @@ impl OrchestrationViewerModel {
         self.maybe_backfill_parent_agent_ids(event, ctx);
 
         match event {
-            BlocklistAIHistoryEvent::SetActiveConversation {
-                terminal_view_id, ..
-            }
-            | BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
-                terminal_view_id, ..
-            } if *terminal_view_id == self.terminal_view_id => {
+            BlocklistAIHistoryEvent::SetActiveConversation { owner_id, .. }
+            | BlocklistAIHistoryEvent::ConversationServerTokenAssigned { owner_id, .. }
+                if *owner_id == self.terminal_view_id =>
+            {
                 self.register_viewer_mode_consumer_if_possible(ctx);
             }
             _ => {}
@@ -192,8 +190,8 @@ impl OrchestrationViewerModel {
     /// Defers if the placeholder hasn't been stamped yet; re-runs from
     /// history events that may flip the placeholder state.
     fn register_viewer_mode_consumer_if_possible(&self, ctx: &mut ModelContext<Self>) {
-        let Some(parent_conversation_id) =
-            BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.terminal_view_id)
+        let Some(parent_conversation_id) = BlocklistAIHistoryModel::as_ref(ctx)
+            .active_conversation_id(self.terminal_view_id.into())
         else {
             log::debug!(
                 "[orch-viewer] no active conversation yet for terminal_view_id={:?} \
@@ -300,7 +298,12 @@ impl OrchestrationViewerModel {
             entry.session_id.is_none() || !entry.pane_materialization_requested;
         let terminal_view_id = self.terminal_view_id;
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-            history.update_conversation_status(terminal_view_id, conversation_id, status, ctx);
+            history.update_conversation_status(
+                terminal_view_id.into(),
+                conversation_id,
+                status,
+                ctx,
+            );
         });
 
         if needs_metadata_refetch {
@@ -374,7 +377,7 @@ impl OrchestrationViewerModel {
                 let status_for_update = conversation_status.clone();
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                     history.update_conversation_status(
-                        terminal_view_id,
+                        terminal_view_id.into(),
                         conversation_id,
                         status_for_update,
                         ctx,
@@ -428,7 +431,7 @@ impl OrchestrationViewerModel {
 
         let conversation_id = BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
             let conversation_id = history.start_new_child_conversation(
-                terminal_view_id,
+                terminal_view_id.into(),
                 name,
                 parent_conversation_id,
                 harness,
@@ -448,11 +451,11 @@ impl OrchestrationViewerModel {
                 conversation_id,
                 task_id.to_string(),
                 Some(task_id),
-                terminal_view_id,
+                terminal_view_id.into(),
                 ctx,
             );
             history.update_conversation_status(
-                terminal_view_id,
+                terminal_view_id.into(),
                 conversation_id,
                 status_for_initial,
                 ctx,
@@ -764,7 +767,7 @@ impl OrchestrationViewerModel {
     /// Resolves the orchestrator's local conversation id via the view's
     /// active conversation, which `on_shared_init` sets on first join.
     fn find_parent_conversation_id(&self, ctx: &ModelContext<Self>) -> Option<AIConversationId> {
-        BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.terminal_view_id)
+        BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(self.terminal_view_id.into())
     }
 
     /// Tells the parent's `TerminalView` to materialize a hidden

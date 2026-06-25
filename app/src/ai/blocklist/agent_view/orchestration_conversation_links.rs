@@ -47,14 +47,14 @@ pub(crate) fn is_conversation_open_in_other_visible_view(
     app: &AppContext,
 ) -> bool {
     let Some(owner) =
-        BlocklistAIHistoryModel::as_ref(app).terminal_view_id_for_conversation(&conversation_id)
+        BlocklistAIHistoryModel::as_ref(app).owner_id_for_conversation(&conversation_id)
     else {
         return false;
     };
     if owner == self_terminal_view_id {
         return false;
     }
-    pane_group_id_containing_terminal_view(owner, app).is_some()
+    pane_group_id_containing_terminal_view(owner.entity_id(), app).is_some()
 }
 
 /// Finds the pane group containing the given terminal view across all
@@ -89,11 +89,11 @@ pub(crate) fn dispatch_focus_or_open_child_agent_pane(
     app: &AppContext,
 ) {
     if let Some(owner_view_id) =
-        BlocklistAIHistoryModel::as_ref(app).terminal_view_id_for_conversation(&conversation_id)
+        BlocklistAIHistoryModel::as_ref(app).owner_id_for_conversation(&conversation_id)
     {
         if owner_view_id != self_terminal_view_id {
             if let Some(owner_pane_group_id) =
-                pane_group_id_containing_terminal_view(owner_view_id, app)
+                pane_group_id_containing_terminal_view(owner_view_id.entity_id(), app)
             {
                 let self_pane_group_id =
                     pane_group_id_containing_terminal_view(self_terminal_view_id, app);
@@ -101,7 +101,7 @@ pub(crate) fn dispatch_focus_or_open_child_agent_pane(
                     ctx.dispatch_typed_action(TerminalAction::RevealChildAgent { conversation_id });
                 } else {
                     ctx.dispatch_typed_action(WorkspaceAction::FocusTerminalViewInWorkspace {
-                        terminal_view_id: owner_view_id,
+                        terminal_view_id: owner_view_id.entity_id(),
                     });
                 }
                 return;
