@@ -15,7 +15,7 @@ use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
 use crate::auth::AuthStateProvider;
 
 mod conversation_model;
-mod smoke;
+mod prompt_stream;
 
 /// Entry point invoked from `run_internal` once the headless app is initialized.
 ///
@@ -24,12 +24,9 @@ mod smoke;
 /// URL/code as a fallback), and prints the ID once login completes. Terminates
 /// the app when done.
 pub fn init(ctx: &mut AppContext) {
-    if smoke::start_from_environment(ctx) {
-        return;
-    }
     let auth_state = AuthStateProvider::as_ref(ctx).get();
     if auth_state.is_logged_in() {
-        print_user_id_and_exit(ctx);
+        finish_initialization(ctx);
         return;
     }
 
@@ -62,7 +59,7 @@ pub fn init(ctx: &mut AppContext) {
             ctx.open_url(url_to_open);
         }
         AuthManagerEvent::AuthComplete => {
-            print_user_id_and_exit(ctx);
+            finish_initialization(ctx);
         }
         AuthManagerEvent::AuthFailed(err) => {
             ctx.terminate_app(
@@ -76,6 +73,13 @@ pub fn init(ctx: &mut AppContext) {
     AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
         auth_manager.authorize_device(ctx);
     });
+}
+
+/// Runs the requested TUI operation after authentication is ready.
+fn finish_initialization(ctx: &mut AppContext) {
+    if !prompt_stream::start_from_environment(ctx) {
+        print_user_id_and_exit(ctx);
+    }
 }
 
 /// Prints the authenticated user's ID to stdout, then terminates the app.

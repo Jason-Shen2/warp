@@ -1,4 +1,4 @@
-//! Cargo-runnable TUI conversation-streaming smoke adapter.
+//! One-shot TUI prompt streaming to stdout.
 
 use std::any::Any;
 
@@ -34,15 +34,15 @@ use crate::terminal::{
 const PROMPT_ENV: &str = "WARP_TUI_PROMPT";
 const CONVERSATION_ID_ENV: &str = "WARP_TUI_CONVERSATION_ID";
 
-struct TuiHostView;
+struct PromptStreamHostView;
 
-impl Entity for TuiHostView {
+impl Entity for PromptStreamHostView {
     type Event = ();
 }
 
-impl View for TuiHostView {
+impl View for PromptStreamHostView {
     fn ui_name() -> &'static str {
-        "TuiHostView"
+        "PromptStreamHostView"
     }
 
     fn render(&self, _app: &AppContext) -> Box<dyn Element> {
@@ -50,16 +50,16 @@ impl View for TuiHostView {
     }
 }
 
-impl TypedActionView for TuiHostView {
+impl TypedActionView for PromptStreamHostView {
     type Action = ();
 }
 
-struct TuiConversationSurface {
+struct PromptStreamSurface {
     conversation_model: ModelHandle<TuiConversationModel>,
     last_output: String,
 }
 
-impl TuiConversationSurface {
+impl PromptStreamSurface {
     /// Builds the conversation-capable surface from manager-owned terminal session handles.
     fn new(surface_init: TerminalSurfaceInit, ctx: &mut ViewContext<Self>) -> Self {
         let TerminalSurfaceInit {
@@ -72,7 +72,7 @@ impl TuiConversationSurface {
         let active_session =
             ctx.add_model(|ctx| ActiveSession::new(sessions.clone(), model_events.clone(), ctx));
         let context_model = ctx.add_model(|ctx| {
-            BlocklistAIContextModel::new_for_headless_surface(
+            BlocklistAIContextModel::new_for_tui_surface(
                 sessions,
                 &model_events,
                 model.clone(),
@@ -81,7 +81,7 @@ impl TuiConversationSurface {
             )
         });
         let input_model = ctx.add_model(|ctx| {
-            BlocklistAIInputModel::new_for_headless_surface(
+            BlocklistAIInputModel::new_for_tui_surface(
                 model.clone(),
                 context_model.clone(),
                 terminal_surface_id,
@@ -100,7 +100,7 @@ impl TuiConversationSurface {
             )
         });
         let ai_controller = ctx.add_model(|ctx| {
-            BlocklistAIController::new_for_headless_surface(
+            BlocklistAIController::new_for_tui_surface(
                 input_model,
                 context_model.clone(),
                 action_model,
@@ -131,14 +131,14 @@ impl TuiConversationSurface {
     ) {
         self.conversation_model.update(ctx, |model, ctx| {
             if let Some(conversation_id) = conversation_id {
-                model.send_prompt_to_conversation(prompt, conversation_id, ctx);
+                model.restore_conversation_and_send_prompt(prompt, conversation_id, ctx);
             } else {
                 model.send_prompt(prompt, ctx);
             }
         });
     }
 
-    /// Adapts production model events to the cargo-runnable smoke output.
+    /// Adapts production model events to the one-shot stdout output.
     fn handle_conversation_event(
         &mut self,
         event: &TuiConversationModelEvent,
@@ -206,7 +206,10 @@ impl TuiConversationSurface {
             return;
         };
         if has_actions {
-            self.terminate_with_error(anyhow!("TUI smoke mode does not support tool actions"), ctx);
+            self.terminate_with_error(
+                anyhow!("TUI prompt streaming does not support tool actions"),
+                ctx,
+            );
             return;
         }
         if text != self.last_output {
@@ -215,13 +218,13 @@ impl TuiConversationSurface {
         }
     }
 
-    /// Terminates smoke mode with a user-visible error.
+    /// Terminates prompt streaming with a user-visible error.
     fn terminate_with_error(&self, error: anyhow::Error, ctx: &mut ViewContext<Self>) {
         ctx.terminate_app(TerminationMode::ForceTerminate, Some(Err(error)));
     }
 }
 
-impl Entity for TuiConversationSurface {
+impl Entity for PromptStreamSurface {
     type Event = ();
 }
 
@@ -231,11 +234,7 @@ impl PtyIntentEvent for () {
     }
 }
 
-impl TerminalSurface for TuiConversationSurface {
-    fn should_start_pty(&self) -> bool {
-        false
-    }
-
+impl TerminalSurface for PromptStreamSurface {
     #[cfg(unix)]
     fn should_start_password_prompt_polling(&self, _command: &str, _ctx: &AppContext) -> bool {
         false
@@ -256,7 +255,7 @@ impl TerminalSurface for TuiConversationSurface {
     }
 
     fn on_pty_spawn_failed(&mut self, error: anyhow::Error, _ctx: &mut ViewContext<Self>) {
-        log::warn!("Unexpected PTY spawn failure for no-PTY TUI surface: {error:#}");
+        log::warn!("PTY spawn failed for the TUI prompt-streaming surface: {error:#}");
     }
 
     #[cfg(unix)]
@@ -276,9 +275,9 @@ impl TerminalSurface for TuiConversationSurface {
     }
 }
 
-impl View for TuiConversationSurface {
+impl View for PromptStreamSurface {
     fn ui_name() -> &'static str {
-        "TuiConversationSurface"
+        "PromptStreamSurface"
     }
 
     fn render(&self, _app: &AppContext) -> Box<dyn Element> {
@@ -286,11 +285,11 @@ impl View for TuiConversationSurface {
     }
 }
 
-impl TypedActionView for TuiConversationSurface {
+impl TypedActionView for PromptStreamSurface {
     type Action = ();
 }
 
-impl TerminalManagerTrait for LocalTtyTerminalManager<TuiConversationSurface> {
+impl TerminalManagerTrait for LocalTtyTerminalManager<PromptStreamSurface> {
     fn model(&self) -> std::sync::Arc<parking_lot::FairMutex<TerminalModel>> {
         self.model()
     }
@@ -304,17 +303,17 @@ impl TerminalManagerTrait for LocalTtyTerminalManager<TuiConversationSurface> {
     }
 }
 
-struct TuiConversationSession {
+struct PromptStreamSession {
     _manager: ModelHandle<Box<dyn TerminalManagerTrait>>,
-    _surface: ViewHandle<TuiConversationSurface>,
+    _surface: ViewHandle<PromptStreamSurface>,
 }
 
-impl Entity for TuiConversationSession {
+impl Entity for PromptStreamSession {
     type Event = ();
 }
 
-impl SingletonEntity for TuiConversationSession {}
-/// Starts smoke mode when a prompt was forwarded through the environment.
+impl SingletonEntity for PromptStreamSession {}
+/// Starts prompt streaming when a prompt was forwarded through the environment.
 pub(super) fn start_from_environment(ctx: &mut AppContext) -> bool {
     let Ok(prompt) = std::env::var(PROMPT_ENV) else {
         return false;
@@ -333,12 +332,12 @@ pub(super) fn start_from_environment(ctx: &mut AppContext) -> bool {
             return true;
         }
     };
-    start_prompt_smoke(prompt, conversation_id, ctx);
+    start_prompt_stream(prompt, conversation_id, ctx);
     true
 }
 
-/// Builds a manager-owned terminal session and submits the smoke prompt.
-fn start_prompt_smoke(
+/// Builds a manager-owned terminal session and submits the prompt.
+fn start_prompt_stream(
     prompt: String,
     conversation_id: Option<AIConversationId>,
     ctx: &mut AppContext,
@@ -348,10 +347,10 @@ fn start_prompt_smoke(
             window_style: WindowStyle::NotStealFocus,
             ..Default::default()
         },
-        |_ctx| TuiHostView,
+        |_ctx| PromptStreamHostView,
     );
     let banner = ctx.add_model(|_| BannerState::default());
-    let terminal_manager = LocalTtyTerminalManager::<TuiConversationSurface>::create_model(
+    let terminal_manager = LocalTtyTerminalManager::<PromptStreamSurface>::create_model(
         std::env::current_dir().ok(),
         std::env::vars_os().collect(),
         IsSharedSessionCreator::No,
@@ -363,12 +362,12 @@ fn start_prompt_smoke(
         ctx,
         move |surface_init, ctx| {
             let surface = ctx.add_typed_action_view(window_id, |ctx| {
-                TuiConversationSurface::new(surface_init, ctx)
+                PromptStreamSurface::new(surface_init, ctx)
             });
             TerminalSurfaceResult {
                 surface,
-                post_wire: |_manager: &mut LocalTtyTerminalManager<TuiConversationSurface>,
-                            _surface: &ViewHandle<TuiConversationSurface>,
+                post_wire: |_manager: &mut LocalTtyTerminalManager<PromptStreamSurface>,
+                            _surface: &ViewHandle<PromptStreamSurface>,
                             _ctx: &mut AppContext| {},
             }
         },
@@ -378,7 +377,7 @@ fn start_prompt_smoke(
     surface.update(ctx, |surface, ctx| {
         surface.submit_prompt(prompt, conversation_id, ctx);
     });
-    ctx.add_singleton_model(|_| TuiConversationSession {
+    ctx.add_singleton_model(|_| PromptStreamSession {
         _manager: manager,
         _surface: surface,
     });

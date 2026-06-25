@@ -628,7 +628,7 @@ impl TerminalManager<TerminalView> {
         // Get all conversations for this terminal view
         // Any conversation could be continued during session sharing
         let conversations: Vec<AIConversation> = BlocklistAIHistoryModel::as_ref(ctx)
-            .all_live_conversations_for_owner(terminal_view.id())
+            .all_live_conversations_for_terminal_surface(terminal_view.id())
             .filter(|conv| conv.exchange_count() > 0)
             .cloned()
             .collect();
@@ -717,7 +717,7 @@ impl TerminalManager<TerminalView> {
         if matches!(source.source_type, SessionSourceType::AmbientAgent { .. }) {
             let terminal_view_id = terminal_view.id();
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, _ctx| {
-                history.mark_owner_as_ambient_agent_session_view(terminal_view_id);
+                history.mark_terminal_surface_as_ambient_agent_session_view(terminal_view_id);
             });
         }
 

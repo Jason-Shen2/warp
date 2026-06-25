@@ -167,7 +167,7 @@ impl BlocklistAIStatusBar {
                     }
                     me.reset_model_for_exchange(*exchange_id, *conversation_id, ctx);
                 }
-                BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. } => {
+                BlocklistAIHistoryEvent::ClearedConversationsForTerminalSurface { .. } => {
                     me.active_exchange_model = None;
                     ctx.notify();
                 }

@@ -34,7 +34,7 @@ pub(super) enum TuiConversationModelEvent {
 
 /// Per-surface conversation/composer model for a future interactive TUI.
 ///
-/// This model deliberately owns no transcript widgets. It coordinates selected
+/// This model deliberately contains no transcript widgets. It coordinates selected
 /// conversation state, conversation restore/create operations, prompt
 /// submission, and history-backed stream events for one TUI surface.
 pub(super) struct TuiConversationModel {
@@ -81,11 +81,11 @@ impl TuiConversationModel {
         ctx: &mut ModelContext<Self>,
     ) -> anyhow::Result<()> {
         let is_live = BlocklistAIHistoryModel::as_ref(ctx)
-            .all_live_conversations_for_owner(self.terminal_surface_id)
+            .all_live_conversations_for_terminal_surface(self.terminal_surface_id)
             .any(|conversation| conversation.id() == conversation_id);
         if !is_live {
             return Err(anyhow!(
-                "Conversation {conversation_id} is not live for TUI owner {}",
+                "Conversation {conversation_id} is not live for TUI surface {}",
                 self.terminal_surface_id
             ));
         }
@@ -124,11 +124,13 @@ impl TuiConversationModel {
                 }
             },
         };
-        self.send_prompt_to_selected(prompt, conversation_id, ctx);
+        self.ai_controller.update(ctx, |controller, ctx| {
+            controller.send_user_query_in_conversation(prompt, conversation_id, None, ctx);
+        });
     }
 
     /// Restores, selects, and sends a prompt to an existing conversation.
-    pub(super) fn send_prompt_to_conversation(
+    pub(super) fn restore_conversation_and_send_prompt(
         &mut self,
         prompt: String,
         conversation_id: AIConversationId,
@@ -137,14 +139,14 @@ impl TuiConversationModel {
         let history = BlocklistAIHistoryModel::handle(ctx);
         let is_live = history
             .as_ref(ctx)
-            .all_live_conversations_for_owner(self.terminal_surface_id)
+            .all_live_conversations_for_terminal_surface(self.terminal_surface_id)
             .any(|conversation| conversation.id() == conversation_id);
         if is_live {
             if let Err(error) = self.select_conversation(conversation_id, ctx) {
                 self.emit_error(error, ctx);
                 return;
             }
-            self.send_prompt_to_selected(prompt, conversation_id, ctx);
+            self.send_prompt(prompt, ctx);
             return;
         }
         if let Some(conversation) = history.as_ref(ctx).conversation(&conversation_id).cloned() {
@@ -155,7 +157,7 @@ impl TuiConversationModel {
                 self.emit_error(error, ctx);
                 return;
             }
-            self.send_prompt_to_selected(prompt, conversation_id, ctx);
+            self.send_prompt(prompt, ctx);
             return;
         }
 
@@ -179,23 +181,11 @@ impl TuiConversationModel {
                 model.emit_error(error, ctx);
                 return;
             }
-            model.send_prompt_to_selected(prompt, conversation_id, ctx);
+            model.send_prompt(prompt, ctx);
         });
     }
 
-    /// Sends a prompt after the target has been selected for this surface.
-    fn send_prompt_to_selected(
-        &mut self,
-        prompt: String,
-        conversation_id: AIConversationId,
-        ctx: &mut ModelContext<Self>,
-    ) {
-        self.ai_controller.update(ctx, |controller, ctx| {
-            controller.send_user_query_in_conversation(prompt, conversation_id, None, ctx);
-        });
-    }
-
-    /// Converts owner-scoped history events into TUI presentation events.
+    /// Converts terminal-surface-scoped history events into TUI presentation events.
     fn handle_history_event(
         &mut self,
         event: &BlocklistAIHistoryEvent,

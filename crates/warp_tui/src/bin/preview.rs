@@ -7,7 +7,6 @@
 use anyhow::Result;
 use warp_core::channel::{Channel, ChannelState};
 use warp_core::features;
-#[path = "../args.rs"]
 mod args;
 
 fn main() -> Result<()> {

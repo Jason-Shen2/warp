@@ -31,7 +31,6 @@ use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonE
 use self::response_stream::{ResponseStream, ResponseStreamEvent};
 use super::action_model::{BlocklistAIActionEvent, BlocklistAIActionModel};
 use super::agent_view::{AgentViewController, AgentViewControllerEvent, AgentViewEntryOrigin};
-use super::agent_view_integration::AgentViewIntegration;
 use super::context_model::{BlocklistAIContextModel, PendingAttachment, PendingFile};
 use super::history_model::BlocklistAIHistoryModel;
 use super::input_model::InputConfig;
@@ -429,8 +428,9 @@ impl BlocklistAIController {
         SessionContext::from_session(self.active_session.as_ref(ctx), ctx).skill_path_origin()
     }
 
+    /// Creates a controller for a GUI terminal view.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new_for_terminal_view(
         input_model: ModelHandle<BlocklistAIInputModel>,
         context_model: ModelHandle<BlocklistAIContextModel>,
         action_model: ModelHandle<BlocklistAIActionModel>,
@@ -440,22 +440,22 @@ impl BlocklistAIController {
         terminal_view_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
-        Self::new_with_agent_view_integration(
+        Self::new_for_surface(
             input_model,
             context_model,
             action_model,
             active_session,
-            AgentViewIntegration::Gui(agent_view_controller),
+            Some(agent_view_controller),
             terminal_model,
             terminal_view_id,
             ctx,
         )
     }
 
-    /// Creates a controller for a headless surface without Agent View lifecycle behavior.
+    /// Creates a controller for a TUI surface without Agent View lifecycle behavior.
     #[allow(clippy::too_many_arguments)]
     #[cfg(feature = "tui")]
-    pub(crate) fn new_for_headless_surface(
+    pub(crate) fn new_for_tui_surface(
         input_model: ModelHandle<BlocklistAIInputModel>,
         context_model: ModelHandle<BlocklistAIContextModel>,
         action_model: ModelHandle<BlocklistAIActionModel>,
@@ -464,26 +464,26 @@ impl BlocklistAIController {
         terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
-        Self::new_with_agent_view_integration(
+        Self::new_for_surface(
             input_model,
             context_model,
             action_model,
             active_session,
-            AgentViewIntegration::Headless,
+            None,
             terminal_model,
             terminal_surface_id,
             ctx,
         )
     }
 
-    /// Creates a controller with the surface's explicit Agent View integration mode.
+    /// Creates a controller with the Agent View lifecycle appropriate for the surface.
     #[allow(clippy::too_many_arguments)]
-    fn new_with_agent_view_integration(
+    fn new_for_surface(
         input_model: ModelHandle<BlocklistAIInputModel>,
         context_model: ModelHandle<BlocklistAIContextModel>,
         action_model: ModelHandle<BlocklistAIActionModel>,
         active_session: ModelHandle<ActiveSession>,
-        agent_view_integration: AgentViewIntegration,
+        agent_view_controller: Option<ModelHandle<AgentViewController>>,
         terminal_model: Arc<FairMutex<TerminalModel>>,
         terminal_view_id: EntityId,
         ctx: &mut ModelContext<Self>,
@@ -606,7 +606,7 @@ impl BlocklistAIController {
             me.send_follow_up_for_conversation(*conversation_id, trigger, ctx);
         });
 
-        if let Some(agent_view_controller) = agent_view_integration.controller() {
+        if let Some(agent_view_controller) = agent_view_controller.as_ref() {
             ctx.subscribe_to_model(agent_view_controller, |me, _, event, ctx| {
                 let AgentViewControllerEvent::ExitedAgentView {
                     conversation_id,
@@ -1681,7 +1681,7 @@ impl BlocklistAIController {
         ctx: &ModelContext<Self>,
     ) -> bool {
         let owns = BlocklistAIHistoryModel::as_ref(ctx)
-            .all_live_conversations_for_owner(self.terminal_view_id)
+            .all_live_conversations_for_terminal_surface(self.terminal_view_id)
             .any(|conversation| conversation.id() == conversation_id);
         let has_active_stream = self
             .in_flight_response_streams

@@ -133,7 +133,7 @@ fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextMode
     });
 
     app.add_model(|_| {
-        BlocklistAIContextModel::new_for_test(
+        BlocklistAIContextModel::new_for_terminal_view_test(
             terminal_model,
             terminal_view_id,
             agent_view_controller,
@@ -158,13 +158,13 @@ fn build_controllerless_context_model(
     )));
     let terminal_surface_id = EntityId::new();
     let model = app.add_model(|_| {
-        BlocklistAIContextModel::new_for_headless_surface_test(terminal_model, terminal_surface_id)
+        BlocklistAIContextModel::new_for_tui_surface_test(terminal_model, terminal_surface_id)
     });
     (model, terminal_surface_id)
 }
 
 #[test]
-fn controllerless_context_owns_selected_conversation() {
+fn tui_context_tracks_selected_conversation() {
     App::test((), |mut app| async move {
         let (model, _) = build_controllerless_context_model(&mut app);
         let conversation_id = AIConversationId::new();
@@ -190,7 +190,7 @@ fn controllerless_context_owns_selected_conversation() {
 }
 
 #[test]
-fn controllerless_new_conversation_is_selected_and_owner_scoped() {
+fn tui_new_conversation_is_selected_and_terminal_surface_scoped() {
     App::test((), |mut app| async move {
         let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let (model, terminal_surface_id) = build_controllerless_context_model(&mut app);
@@ -199,7 +199,7 @@ fn controllerless_new_conversation_is_selected_and_owner_scoped() {
             .update(&mut app, |model, ctx| {
                 model.try_enter_agent_view_for_new_conversation(AgentViewEntryOrigin::Cli, ctx)
             })
-            .expect("controller-less conversation creation should succeed");
+            .expect("TUI conversation creation should succeed");
 
         model.read(&app, |model, ctx| {
             assert_eq!(model.selected_conversation_id(ctx), Some(conversation_id));
@@ -207,7 +207,7 @@ fn controllerless_new_conversation_is_selected_and_owner_scoped() {
         history.read(&app, |history, _| {
             assert_eq!(
                 history
-                    .all_live_conversations_for_owner(terminal_surface_id)
+                    .all_live_conversations_for_terminal_surface(terminal_surface_id)
                     .map(|conversation| conversation.id())
                     .collect::<Vec<_>>(),
                 vec![conversation_id]

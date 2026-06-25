@@ -720,7 +720,7 @@ fn child_status_changed_with_unknown_run_id_is_silently_dropped() {
         history.read(&app, |history, _| {
             assert!(
                 history
-                    .all_live_conversations_for_owner(terminal_view_id)
+                    .all_live_conversations_for_terminal_surface(terminal_view_id)
                     .filter(|conversation| conversation.is_viewing_shared_session())
                     .count()
                     == 0,

@@ -9,7 +9,6 @@
 use anyhow::Result;
 use warp_core::channel::{Channel, ChannelConfig, ChannelState, OzConfig, WarpServerConfig};
 use warp_core::AppId;
-#[path = "../args.rs"]
 mod args;
 
 fn main() -> Result<()> {
