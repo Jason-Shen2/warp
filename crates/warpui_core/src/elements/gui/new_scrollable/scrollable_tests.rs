@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use pathfinder_color::ColorU;
@@ -19,6 +19,7 @@ use crate::platform::{TerminationMode, WindowStyle};
 use crate::text::word_boundaries::WordBoundariesPolicy;
 use crate::text::{IsRect, SelectionDirection, SelectionType};
 use crate::units::Pixels;
+use crate::EntityIdSet;
 use crate::{
     AfterLayoutContext, App, AppContext, Element, Entity, EntityId, Event, EventContext,
     LayoutContext, PaintContext, Presenter, SizeConstraint, TypedActionView, View, ViewContext,
@@ -560,7 +561,7 @@ impl TypedActionView for BasicScrollableView {
 }
 
 fn render(presenter: &mut Presenter, view_id: EntityId, ctx: &mut AppContext) {
-    let mut updated = HashSet::new();
+    let mut updated = EntityIdSet::default();
     updated.insert(view_id);
     let invalidation = WindowInvalidation {
         updated,

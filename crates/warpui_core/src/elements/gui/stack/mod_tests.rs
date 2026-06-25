@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use itertools::Itertools;
@@ -10,6 +10,7 @@ use crate::elements::{
     Clipped, ConstrainedBox, DispatchEventResult, EventHandler, ParentElement, Rect, ZIndex,
 };
 use crate::platform::WindowStyle;
+use crate::EntityIdSet;
 use crate::{
     App, AppContext, Entity, Event, Presenter, TypedActionView, ViewContext, ViewHandle, WindowId,
     WindowInvalidation,
@@ -241,7 +242,7 @@ fn test_paint_sets_z_index() {
 
         let mut presenter = Presenter::new(window_id);
 
-        let mut updated = HashSet::new();
+        let mut updated = EntityIdSet::default();
         updated.insert(app.root_view_id(window_id).unwrap());
         let invalidation = WindowInvalidation {
             updated,
@@ -713,7 +714,9 @@ fn test_relative_positioning_bound_to_missing_anchor() {
         let mut presenter = Presenter::new(window_id);
 
         let invalidation = WindowInvalidation {
-            updated: HashSet::from([app.root_view_id(window_id).expect("Root view must exist")]),
+            updated: EntityIdSet::from_iter([app
+                .root_view_id(window_id)
+                .expect("Root view must exist")]),
             ..Default::default()
         };
 
@@ -752,7 +755,7 @@ fn position_child_and_assert_location(
 
     let mut presenter = Presenter::new(window_id);
 
-    let mut updated = HashSet::new();
+    let mut updated = EntityIdSet::default();
     updated.insert(app.root_view_id(window_id).unwrap());
     let invalidation = WindowInvalidation {
         updated,

@@ -1,11 +1,10 @@
-use std::collections::HashSet;
-
 use pathfinder_geometry::vector::vec2f;
 
 use super::{ClippedScrollStateHandle, ClippedScrollable, ScrollTarget, ScrollToPositionMode};
 use crate::elements::{Axis, ConstrainedBox, Empty, Flex, ParentElement, SavePosition, Stack};
 use crate::platform::WindowStyle;
 use crate::units::IntoPixels;
+use crate::EntityIdSet;
 use crate::{App, Element, Entity, Presenter, TypedActionView, WindowInvalidation};
 
 macro_rules! assert_float_eq {
@@ -77,7 +76,7 @@ fn test_scroll_to_position() {
 
         let mut presenter = Presenter::new(window_id);
 
-        let mut updated = HashSet::new();
+        let mut updated = EntityIdSet::default();
         updated.insert(app.root_view_id(window_id).unwrap());
         let invalidation = WindowInvalidation {
             updated,

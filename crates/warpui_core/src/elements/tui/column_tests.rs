@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::TuiColumn;
@@ -10,11 +9,12 @@ use crate::elements::tui::{
 };
 use crate::event::KeyEventDetails;
 use crate::keymap::Keystroke;
+use crate::EntityIdMap;
 use crate::{App, EntityId, Event};
 
 fn render_to_lines(element: &dyn TuiElement, size: TuiSize) -> Vec<String> {
     let mut buffer = TuiBuffer::empty(TuiRect::new(0, 0, size.width, size.height));
-    let mut rendered_views = HashMap::new();
+    let mut rendered_views = EntityIdMap::default();
     let mut ctx = TuiLayoutContext {
         rendered_views: &mut rendered_views,
     };
@@ -32,7 +32,7 @@ fn stacks_two_children_top_to_bottom() {
         .with_child(Box::new(TuiText::new("AA")))
         .with_child(Box::new(TuiText::new("BB")));
 
-    let mut rendered_views = HashMap::new();
+    let mut rendered_views = EntityIdMap::default();
     let mut ctx = TuiLayoutContext {
         rendered_views: &mut rendered_views,
     };
@@ -54,7 +54,7 @@ fn sums_multi_row_children_at_the_correct_offsets() {
         .with_child(Box::new(TuiText::new("D")));
 
     // Layout must be called before render so TuiColumn.child_sizes is populated.
-    let mut rendered_views = HashMap::new();
+    let mut rendered_views = EntityIdMap::default();
     let mut ctx = TuiLayoutContext {
         rendered_views: &mut rendered_views,
     };
@@ -74,7 +74,7 @@ fn clamps_total_height_to_the_constraint_and_clips_overflow() {
         .with_child(Box::new(TuiText::new("D")));
 
     // Layout populates child_sizes; render and dispatch rely on them.
-    let mut rendered_views = HashMap::new();
+    let mut rendered_views = EntityIdMap::default();
     let mut ctx = TuiLayoutContext {
         rendered_views: &mut rendered_views,
     };
@@ -95,10 +95,10 @@ fn clamps_total_height_to_the_constraint_and_clips_overflow() {
 fn present_recurses_into_children() {
     let root = EntityId::from_usize(1);
     let embedded = EntityId::from_usize(2);
-    let mut parent_by_child = HashMap::new();
+    let mut parent_by_child = EntityIdMap::default();
 
     {
-        let mut rendered_views_for_child = HashMap::new();
+        let mut rendered_views_for_child = EntityIdMap::default();
         let mut ctx =
             TuiPresentationContext::new(root, &mut rendered_views_for_child, &mut parent_by_child);
         let child_node = TuiChildView::from_rendered(
@@ -151,7 +151,7 @@ fn dispatch_event_offers_children_in_order_and_stops_when_handled() {
 
             // Layout must run before dispatch so TuiColumn.child_sizes is populated.
             let mut event_ctx = TuiEventContext::default();
-            let mut rendered_views = HashMap::new();
+            let mut rendered_views = EntityIdMap::default();
             let mut ctx = TuiLayoutContext {
                 rendered_views: &mut rendered_views,
             };
