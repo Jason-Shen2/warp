@@ -8,6 +8,8 @@ mod noop;
 mod screenshot_utils;
 
 use std::borrow::Cow;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use async_trait::async_trait;
 // Clippy doesn't like us pulling in a file as two different modules,
@@ -55,6 +57,103 @@ pub trait Actor: Send + Sync + 'static {
         actions: &[Action],
         options: Options,
     ) -> Result<ActionResult, String>;
+}
+
+/// Returns a recorder that can capture a video of the computer-use display.
+///
+/// A real recorder is only available on Linux (X11); every other platform, and
+/// any `test-util` build, gets a no-op recorder that reports recording as
+/// unsupported.
+pub fn create_recorder() -> Box<dyn Recorder> {
+    if cfg!(feature = "test-util") {
+        Box::new(noop::Recorder::new())
+    } else {
+        Box::new(imp::Recorder::new())
+    }
+}
+
+/// A long-lived capability that records a video of the computer-use display.
+///
+/// Unlike [`Actor`], a recorder spans many tool calls: `start` launches capture
+/// and returns a [`RecordingHandle`] that the caller holds for the duration of
+/// the flow, and `stop` consumes that handle to finalize the video.
+#[async_trait]
+pub trait Recorder: Send + Sync + 'static {
+    /// Begins capturing the display. Resolves once capture is confirmed live
+    /// (the display is open and the encoder has produced its first output).
+    async fn start(&self, config: RecordingConfig) -> Result<RecordingHandle, String>;
+
+    /// Stops an in-progress recording, finalizes the container, and returns the
+    /// resulting file path and metadata. The file is streamed to disk; the
+    /// caller owns publishing and cleanup.
+    async fn stop(&self, handle: RecordingHandle) -> Result<RecordingOutput, String>;
+}
+
+/// Runtime-owned capture configuration for a recording.
+#[derive(Debug, Clone)]
+pub struct RecordingConfig {
+    /// Capture frame rate in frames per second.
+    pub frame_rate: u32,
+}
+
+impl Default for RecordingConfig {
+    fn default() -> Self {
+        Self { frame_rate: 15 }
+    }
+}
+
+/// An opaque handle to an in-progress recording, returned by [`Recorder::start`]
+/// and consumed by [`Recorder::stop`]. It owns the live capture process and the
+/// metadata needed to report the applied capture settings.
+pub struct RecordingHandle {
+    width: u32,
+    height: u32,
+    frame_rate: u32,
+    // The live capture process plus the fields used to finalize it are only
+    // populated by the real Linux recorder; the no-op recorders never construct
+    // a handle.
+    #[cfg(linux)]
+    path: PathBuf,
+    #[cfg(linux)]
+    started_at: std::time::Instant,
+    #[cfg(linux)]
+    process: tokio::process::Child,
+}
+
+impl RecordingHandle {
+    /// The applied capture width in pixels.
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// The applied capture height in pixels.
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    /// The applied capture frame rate in frames per second.
+    pub fn frame_rate(&self) -> u32 {
+        self.frame_rate
+    }
+}
+
+/// The finalized output of a stopped recording. Carries the local file path and
+/// metadata only; callers are responsible for publishing and deleting the file.
+#[derive(Debug, Clone)]
+pub struct RecordingOutput {
+    pub path: PathBuf,
+    pub duration: Duration,
+    pub width: u32,
+    pub height: u32,
+    pub size_bytes: u64,
+    pub completion_status: RecordingCompletionStatus,
+}
+
+/// Whether a recording finalized cleanly or was cut short.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum RecordingCompletionStatus {
+    Complete,
+    Incomplete,
 }
 
 /// A key that can be pressed or released.

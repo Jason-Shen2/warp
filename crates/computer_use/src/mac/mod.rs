@@ -8,6 +8,8 @@ use async_trait::async_trait;
 use warpui_core::r#async::Timer;
 
 use crate::{Action, ActionResult, Options};
+// Video recording is not yet implemented on macOS; reuse the no-op recorder.
+pub use crate::noop::Recorder;
 
 pub fn is_supported_on_current_platform() -> bool {
     true

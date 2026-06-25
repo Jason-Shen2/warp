@@ -13,6 +13,8 @@ use windows::Win32::System::StationsAndDesktops::{
 };
 
 use crate::{Action, ActionResult, Options};
+// Video recording is not yet implemented on Windows; reuse the no-op recorder.
+pub use crate::noop::Recorder;
 
 /// Returns whether computer_use can drive input on this machine right now.
 ///

@@ -575,6 +575,9 @@ pub enum FeatureFlag {
     /// Enables computer use functionality in local clients.
     LocalComputerUse,
 
+    /// Enables video recording of computer-use sessions for cloud agents.
+    VideoRecording,
+
     /// Enables team API key creation in the API key management UI.
     TeamApiKeys,
 
