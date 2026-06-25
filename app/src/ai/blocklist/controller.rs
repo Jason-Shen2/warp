@@ -31,6 +31,7 @@ use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonE
 use self::response_stream::{ResponseStream, ResponseStreamEvent};
 use super::action_model::{BlocklistAIActionEvent, BlocklistAIActionModel};
 use super::agent_view::{AgentViewController, AgentViewControllerEvent, AgentViewEntryOrigin};
+use super::agent_view_integration::AgentViewIntegration;
 use super::context_model::{BlocklistAIContextModel, PendingAttachment, PendingFile};
 use super::history_model::BlocklistAIHistoryModel;
 use super::input_model::InputConfig;
@@ -434,7 +435,55 @@ impl BlocklistAIController {
         context_model: ModelHandle<BlocklistAIContextModel>,
         action_model: ModelHandle<BlocklistAIActionModel>,
         active_session: ModelHandle<ActiveSession>,
-        agent_view_controller: Option<ModelHandle<AgentViewController>>,
+        agent_view_controller: ModelHandle<AgentViewController>,
+        terminal_model: Arc<FairMutex<TerminalModel>>,
+        terminal_view_id: EntityId,
+        ctx: &mut ModelContext<Self>,
+    ) -> Self {
+        Self::new_with_agent_view_integration(
+            input_model,
+            context_model,
+            action_model,
+            active_session,
+            AgentViewIntegration::Gui(agent_view_controller),
+            terminal_model,
+            terminal_view_id,
+            ctx,
+        )
+    }
+
+    /// Creates a controller for a headless surface without Agent View lifecycle behavior.
+    #[allow(clippy::too_many_arguments)]
+    #[cfg(feature = "tui")]
+    pub(crate) fn new_for_headless_surface(
+        input_model: ModelHandle<BlocklistAIInputModel>,
+        context_model: ModelHandle<BlocklistAIContextModel>,
+        action_model: ModelHandle<BlocklistAIActionModel>,
+        active_session: ModelHandle<ActiveSession>,
+        terminal_model: Arc<FairMutex<TerminalModel>>,
+        terminal_surface_id: EntityId,
+        ctx: &mut ModelContext<Self>,
+    ) -> Self {
+        Self::new_with_agent_view_integration(
+            input_model,
+            context_model,
+            action_model,
+            active_session,
+            AgentViewIntegration::Headless,
+            terminal_model,
+            terminal_surface_id,
+            ctx,
+        )
+    }
+
+    /// Creates a controller with the surface's explicit Agent View integration mode.
+    #[allow(clippy::too_many_arguments)]
+    fn new_with_agent_view_integration(
+        input_model: ModelHandle<BlocklistAIInputModel>,
+        context_model: ModelHandle<BlocklistAIContextModel>,
+        action_model: ModelHandle<BlocklistAIActionModel>,
+        active_session: ModelHandle<ActiveSession>,
+        agent_view_integration: AgentViewIntegration,
         terminal_model: Arc<FairMutex<TerminalModel>>,
         terminal_view_id: EntityId,
         ctx: &mut ModelContext<Self>,
@@ -557,7 +606,7 @@ impl BlocklistAIController {
             me.send_follow_up_for_conversation(*conversation_id, trigger, ctx);
         });
 
-        if let Some(agent_view_controller) = &agent_view_controller {
+        if let Some(agent_view_controller) = agent_view_integration.controller() {
             ctx.subscribe_to_model(agent_view_controller, |me, _, event, ctx| {
                 let AgentViewControllerEvent::ExitedAgentView {
                     conversation_id,

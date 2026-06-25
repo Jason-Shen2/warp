@@ -687,7 +687,8 @@ fn agent_conversation_action_state(
 ) -> Option<AgentConversationActionState> {
     let history_model = BlocklistAIHistoryModel::as_ref(ctx);
     let conversation = history_model.conversation(&conversation_id)?;
-    let owner_terminal_view_id = history_model.owner_id_for_conversation(&conversation_id)?;
+    let owner_terminal_view_id =
+        history_model.terminal_surface_id_for_conversation(&conversation_id)?;
     Some(AgentConversationActionState {
         owner_terminal_view_id,
         task_id: conversation.task_id(),
@@ -2127,7 +2128,10 @@ fn handle_ai_history_event(
         AIQueryHistoryOutputStatus, PersistedAIInput, PersistedAIInputType,
     };
 
-    if event.owner_id().is_some_and(|id| id != terminal_view_id) {
+    if event
+        .terminal_surface_id()
+        .is_some_and(|id| id != terminal_view_id)
+    {
         return;
     }
 

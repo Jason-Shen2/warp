@@ -3450,14 +3450,14 @@ impl TerminalView {
                 &model_events_handle,
                 model.clone(),
                 terminal_view_id,
-                Some(agent_view_controller.clone()),
+                agent_view_controller.clone(),
                 ctx,
             )
         });
         let ai_input_model = ctx.add_model(|ctx| {
             let mut model = BlocklistAIInputModel::new(
                 model.clone(),
-                Some(agent_view_controller.clone()),
+                agent_view_controller.clone(),
                 ai_context_model.clone(),
                 terminal_view_id,
                 ctx,
@@ -3490,7 +3490,7 @@ impl TerminalView {
                 ai_context_model.clone(),
                 ai_action_model.clone(),
                 active_session.clone(),
-                Some(agent_view_controller.clone()),
+                agent_view_controller.clone(),
                 model.clone(),
                 terminal_view_id,
                 ctx,
@@ -4835,7 +4835,7 @@ impl TerminalView {
         let Some(parent_id) = parent_id else {
             return false;
         };
-        let parent_terminal_view_id = history.owner_id_for_conversation(&parent_id);
+        let parent_terminal_view_id = history.terminal_surface_id_for_conversation(&parent_id);
 
         if let Some(parent_terminal_view_id) = parent_terminal_view_id {
             // Defer so it runs after in-flight event handling completes.
@@ -5984,14 +5984,14 @@ impl TerminalView {
             }
             | BlocklistAIHistoryEvent::UpdatedConversationTitle {
                 conversation_id, ..
-            } => history_model.owner_id_for_conversation(conversation_id),
+            } => history_model.terminal_surface_id_for_conversation(conversation_id),
             BlocklistAIHistoryEvent::ReassignedExchange {
                 new_conversation_id,
                 ..
-            } => history_model.owner_id_for_conversation(new_conversation_id),
+            } => history_model.terminal_surface_id_for_conversation(new_conversation_id),
             BlocklistAIHistoryEvent::UpdatedConversationMetadata {
                 conversation_id, ..
-            } => history_model.owner_id_for_conversation(conversation_id),
+            } => history_model.terminal_surface_id_for_conversation(conversation_id),
             BlocklistAIHistoryEvent::StartedNewConversation { .. }
             | BlocklistAIHistoryEvent::CreatedSubtask { .. }
             | BlocklistAIHistoryEvent::UpgradedTask { .. }
@@ -6023,7 +6023,7 @@ impl TerminalView {
         let should_handle = match self.render_owner_for_ai_history_event(history_model_ref, event) {
             Some(owner_terminal_view_id) => owner_terminal_view_id == self.view_id,
             None => event
-                .owner_id()
+                .terminal_surface_id()
                 .is_none_or(|terminal_view_id| terminal_view_id == self.view_id),
         };
         if !should_handle {
@@ -6479,7 +6479,7 @@ impl TerminalView {
             }
             BlocklistAIHistoryEvent::ConversationOwnershipTransferred {
                 conversation_id,
-                previous_owner_id,
+                previous_terminal_surface_id,
                 ..
             } => {
                 // The conversation has moved to another terminal view. We are
@@ -6488,7 +6488,7 @@ impl TerminalView {
                 // rendered blocks tagged to this conversation. Leave the
                 // agent-view entry in place so the user can click it to
                 // navigate to the current owner pane later.
-                if *previous_owner_id != self.view_id {
+                if *previous_terminal_surface_id != self.view_id {
                     return;
                 }
                 let view_ids_to_remove = self

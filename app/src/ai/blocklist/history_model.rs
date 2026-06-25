@@ -235,12 +235,12 @@ pub struct BlocklistAIHistoryModel {
     owner_created_at: HashMap<EntityId, DateTime<Local>>,
 
     /// A set of owners that are shared ambient agent sessions.
-    ambient_agent_owner_ids: HashSet<EntityId>,
+    ambient_agent_terminal_surface_ids: HashSet<EntityId>,
 
     /// A set of owners that are read-only conversation transcript viewers.
     /// This is view/UI state (not conversation state) and is used to filter transcript viewer
     /// conversations out of local history and navigation.
-    conversation_transcript_viewer_owner_ids: HashSet<EntityId>,
+    conversation_transcript_viewer_terminal_surface_ids: HashSet<EntityId>,
 
     /// AI queries that were read from the SQLite DB. These exchanges do not contain as much
     /// information as the other exchanges we store because they are only used for display in
@@ -314,10 +314,10 @@ impl BlocklistAIHistoryModel {
     /// This works for owners whose surfaces have been closed.
     pub fn all_live_conversations_for_owner(
         &self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     ) -> impl Iterator<Item = &AIConversation> {
         self.live_conversation_ids_for_owner
-            .get(&owner_id)
+            .get(&terminal_surface_id)
             .into_iter()
             .flat_map(|conversation_ids| {
                 conversation_ids
@@ -330,10 +330,10 @@ impl BlocklistAIHistoryModel {
     /// This works for owners whose surfaces have been closed.
     pub fn all_live_root_task_exchanges_for_owner(
         &self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     ) -> impl Iterator<Item = &AIAgentExchange> {
         self.live_conversation_ids_for_owner
-            .get(&owner_id)
+            .get(&terminal_surface_id)
             .into_iter()
             .flat_map(|conversation_ids| {
                 conversation_ids.iter().flat_map(|conversation_id| {
@@ -349,10 +349,10 @@ impl BlocklistAIHistoryModel {
     /// that were cleared for an owner, but are no longer live/visible.
     pub fn all_cleared_root_task_exchanges_for_owner(
         &self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     ) -> impl Iterator<Item = &AIAgentExchange> {
         self.cleared_conversation_ids_for_owner
-            .get(&owner_id)
+            .get(&terminal_surface_id)
             .into_iter()
             .flat_map(|conversation_ids| {
                 conversation_ids.iter().flat_map(|conversation_id| {
@@ -368,11 +368,11 @@ impl BlocklistAIHistoryModel {
     pub fn all_cleared_conversations(&self) -> Vec<(EntityId, &AIConversation)> {
         self.cleared_conversation_ids_for_owner
             .iter()
-            .flat_map(|(owner_id, conversation_ids)| {
+            .flat_map(|(terminal_surface_id, conversation_ids)| {
                 conversation_ids.iter().filter_map(|conversation_id| {
                     self.conversations_by_id
                         .get(conversation_id)
-                        .map(|conversation| (*owner_id, conversation))
+                        .map(|conversation| (*terminal_surface_id, conversation))
                 })
             })
             .collect::<Vec<_>>()
@@ -383,11 +383,11 @@ impl BlocklistAIHistoryModel {
     pub fn all_live_conversations(&self) -> Vec<(EntityId, &AIConversation)> {
         self.live_conversation_ids_for_owner
             .iter()
-            .flat_map(|(owner_id, conversation_ids)| {
+            .flat_map(|(terminal_surface_id, conversation_ids)| {
                 conversation_ids.iter().filter_map(|conversation_id| {
                     self.conversations_by_id
                         .get(conversation_id)
-                        .map(|conversation| (*owner_id, conversation))
+                        .map(|conversation| (*terminal_surface_id, conversation))
                 })
             })
             .collect::<Vec<_>>()
@@ -464,7 +464,7 @@ impl BlocklistAIHistoryModel {
     /// Creates a new child agent conversation.
     pub fn start_new_child_conversation(
         &mut self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         name: String,
         parent_conversation_id: AIConversationId,
         orchestration_harness: Option<Harness>,
@@ -482,7 +482,7 @@ impl BlocklistAIHistoryModel {
 
         let auto_execute = true; // Child auto-executes by default.
         let conversation_id =
-            self.start_new_conversation(owner_id, auto_execute, false, false, ctx);
+            self.start_new_conversation(terminal_surface_id, auto_execute, false, false, ctx);
         {
             let conversation = self
                 .conversation_mut(&conversation_id)
@@ -636,7 +636,7 @@ impl BlocklistAIHistoryModel {
             return;
         };
 
-        let owner_id = self.owner_id_for_conversation(&conversation_id);
+        let terminal_surface_id = self.terminal_surface_id_for_conversation(&conversation_id);
 
         let mut updated = false;
         if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
@@ -673,7 +673,7 @@ impl BlocklistAIHistoryModel {
         }
 
         ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationTitle {
-            owner_id,
+            terminal_surface_id,
             conversation_id,
             title,
         });
@@ -686,7 +686,7 @@ impl BlocklistAIHistoryModel {
         title: String,
         ctx: &mut ModelContext<Self>,
     ) {
-        let owner_id = self.owner_id_for_conversation(&conversation_id);
+        let terminal_surface_id = self.terminal_surface_id_for_conversation(&conversation_id);
 
         let mut updated = false;
         if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
@@ -711,7 +711,7 @@ impl BlocklistAIHistoryModel {
         }
 
         ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationTitle {
-            owner_id,
+            terminal_surface_id,
             conversation_id,
             title,
         });
@@ -827,15 +827,15 @@ impl BlocklistAIHistoryModel {
             return;
         }
         self.persist_conversation_state(conversation_id, ctx);
-        let owner_id = self.owner_id_for_conversation(&conversation_id);
+        let terminal_surface_id = self.terminal_surface_id_for_conversation(&conversation_id);
         ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationMetadata {
-            owner_id,
+            terminal_surface_id,
             conversation_id,
         });
-        if let Some(owner_id) = owner_id {
+        if let Some(terminal_surface_id) = terminal_surface_id {
             ctx.emit(BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
                 conversation_id,
-                owner_id,
+                terminal_surface_id,
             });
         }
     }
@@ -849,12 +849,12 @@ impl BlocklistAIHistoryModel {
         metadata: ServerAIConversationMetadata,
         ctx: &mut ModelContext<Self>,
     ) {
-        let owner_id;
+        let terminal_surface_id;
 
         // Update in-memory conversation if it exists
         if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
             conversation.set_server_metadata(metadata);
-            owner_id = self.owner_id_for_conversation(&conversation_id);
+            terminal_surface_id = self.terminal_surface_id_for_conversation(&conversation_id);
         } else if let Some(conversation_metadata) =
             self.all_conversations_metadata.get_mut(&conversation_id)
         {
@@ -862,7 +862,7 @@ impl BlocklistAIHistoryModel {
             // This is needed because we might update permissions from share dialog in
             // conversation list view when we only have metadata.
             conversation_metadata.server_conversation_metadata = Some(metadata);
-            owner_id = None;
+            terminal_surface_id = None;
         } else {
             // Conversation not found anywhere
             return;
@@ -870,7 +870,7 @@ impl BlocklistAIHistoryModel {
 
         // Emit event so sharing dialog and other listeners can refresh.
         ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationMetadata {
-            owner_id,
+            terminal_surface_id,
             conversation_id,
         });
     }
@@ -905,24 +905,24 @@ impl BlocklistAIHistoryModel {
     }
 
     /// Returns the owner ID for the given conversation, if any.
-    pub fn owner_id_for_conversation(
+    pub fn terminal_surface_id_for_conversation(
         &self,
         conversation_id: &AIConversationId,
     ) -> Option<EntityId> {
         self.live_conversation_ids_for_owner
             .iter()
             .find(|(_, conversation_ids)| conversation_ids.contains(conversation_id))
-            .map(|(owner_id, _)| *owner_id)
+            .map(|(terminal_surface_id, _)| *terminal_surface_id)
     }
 
     /// Returns the conversation ID from the owner's history corresponding to the action, if any.
     pub fn conversation_id_for_action(
         &self,
         action_id: &AIAgentActionId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     ) -> Option<AIConversationId> {
         self.live_conversation_ids_for_owner
-            .get(&owner_id)?
+            .get(&terminal_surface_id)?
             .iter()
             .rev()
             .find(|conversation_id| {
@@ -945,8 +945,8 @@ impl BlocklistAIHistoryModel {
     /// The active conversation is the one we're currently or have most recently streamed outputs for.
     /// If you want to get the conversation the next query will follow up in / what is selected in the input selector,
     /// use `context_model.selected_conversation` instead.
-    pub fn active_conversation(&self, owner_id: EntityId) -> Option<&AIConversation> {
-        self.active_conversation_id(owner_id)
+    pub fn active_conversation(&self, terminal_surface_id: EntityId) -> Option<&AIConversation> {
+        self.active_conversation_id(terminal_surface_id)
             .and_then(|id| self.conversation(&id))
     }
 
@@ -972,7 +972,7 @@ impl BlocklistAIHistoryModel {
         &mut self,
         request_input: RequestInput,
         stream_id: ResponseStreamId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Result<(), UpdateHistoryError> {
         let conversation = self
@@ -981,17 +981,23 @@ impl BlocklistAIHistoryModel {
             .ok_or(UpdateHistoryError::ConversationNotFound(
                 request_input.conversation_id,
             ))?;
-        conversation.update_for_new_request_input(request_input, stream_id, owner_id, ctx)?;
+        conversation.update_for_new_request_input(
+            request_input,
+            stream_id,
+            terminal_surface_id,
+            ctx,
+        )?;
         Ok(())
     }
 
     pub fn restore_conversations(
         &mut self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversations: Vec<AIConversation>,
         ctx: &mut ModelContext<Self>,
     ) {
-        self.owner_created_at.insert(owner_id, Local::now());
+        self.owner_created_at
+            .insert(terminal_surface_id, Local::now());
 
         let mut conversation_ids = Vec::new();
         for conversation in conversations.into_iter() {
@@ -999,7 +1005,7 @@ impl BlocklistAIHistoryModel {
             conversation_ids.push(conversation_id);
             let live_conversation_ids = self
                 .live_conversation_ids_for_owner
-                .entry(owner_id)
+                .entry(terminal_surface_id)
                 .or_default();
             if !live_conversation_ids.contains(&conversation_id) {
                 live_conversation_ids.push(conversation_id);
@@ -1030,7 +1036,7 @@ impl BlocklistAIHistoryModel {
             // the workspace can set tab indicators appropriately
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationStatus {
                 conversation_id,
-                owner_id,
+                terminal_surface_id,
                 update: ConversationStatusUpdate::Restored,
                 new_status,
             });
@@ -1038,7 +1044,7 @@ impl BlocklistAIHistoryModel {
 
         // Emit event so consumers can populate their owning view references.
         ctx.emit(BlocklistAIHistoryEvent::RestoredConversations {
-            owner_id,
+            terminal_surface_id,
             conversation_ids,
         });
     }
@@ -1051,12 +1057,12 @@ impl BlocklistAIHistoryModel {
     pub fn set_active_conversation_id(
         &mut self,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         if !self
             .live_conversation_ids_for_owner
-            .get(&owner_id)
+            .get(&terminal_surface_id)
             .is_some_and(|conversation_ids| conversation_ids.contains(&conversation_id))
         {
             log::error!(
@@ -1072,10 +1078,10 @@ impl BlocklistAIHistoryModel {
         // previous owner needs a chance to drop its now-stale rendered AI
         // blocks.
         let mut previous_owners: Vec<EntityId> = Vec::new();
-        for (other_owner, other_owner_live_conversation_ids) in self
-            .live_conversation_ids_for_owner
-            .iter_mut()
-            .filter(|(other_owner_id, _)| **other_owner_id != owner_id)
+        for (other_owner, other_owner_live_conversation_ids) in
+            self.live_conversation_ids_for_owner.iter_mut().filter(
+                |(other_terminal_surface_id, _)| **other_terminal_surface_id != terminal_surface_id,
+            )
         {
             let previous_len = other_owner_live_conversation_ids.len();
             other_owner_live_conversation_ids.retain(|id| *id != conversation_id);
@@ -1091,24 +1097,24 @@ impl BlocklistAIHistoryModel {
                 self.active_conversation_for_owner.remove(other_owner);
                 ctx.emit(BlocklistAIHistoryEvent::ClearedActiveConversation {
                     conversation_id,
-                    owner_id: *other_owner,
+                    terminal_surface_id: *other_owner,
                 });
             }
         }
-        for previous_owner_id in previous_owners {
+        for previous_terminal_surface_id in previous_owners {
             ctx.emit(BlocklistAIHistoryEvent::ConversationOwnershipTransferred {
                 conversation_id,
-                previous_owner_id,
-                new_owner_id: owner_id,
+                previous_terminal_surface_id,
+                new_terminal_surface_id: terminal_surface_id,
             });
         }
 
         self.active_conversation_for_owner
-            .insert(owner_id, conversation_id);
+            .insert(terminal_surface_id, conversation_id);
 
         ctx.emit(BlocklistAIHistoryEvent::SetActiveConversation {
             conversation_id,
-            owner_id,
+            terminal_surface_id,
         });
     }
 
@@ -1121,27 +1127,27 @@ impl BlocklistAIHistoryModel {
     pub fn mark_active_conversation_id(
         &mut self,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         if !self
             .live_conversation_ids_for_owner
-            .get(&owner_id)
+            .get(&terminal_surface_id)
             .is_some_and(|conversation_ids| conversation_ids.contains(&conversation_id))
         {
             log::warn!(
                 "mark_active_conversation_id: conversation {conversation_id:?} is not in \
-                 owner {owner_id:?} live list, skipping"
+                 owner {terminal_surface_id:?} live list, skipping"
             );
             return;
         }
 
         self.active_conversation_for_owner
-            .insert(owner_id, conversation_id);
+            .insert(terminal_surface_id, conversation_id);
 
         ctx.emit(BlocklistAIHistoryEvent::SetActiveConversation {
             conversation_id,
-            owner_id,
+            terminal_surface_id,
         });
     }
 
@@ -1154,7 +1160,7 @@ impl BlocklistAIHistoryModel {
     /// element in the `conversations` vector.
     pub fn start_new_conversation(
         &mut self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         is_autoexecute_override: bool,
         is_viewing_shared_session: bool,
         is_cli_agent_transcript: bool,
@@ -1167,7 +1173,7 @@ impl BlocklistAIHistoryModel {
         }
         let new_conversation_id = new_conversation.id();
         self.live_conversation_ids_for_owner
-            .entry(owner_id)
+            .entry(terminal_surface_id)
             .or_default()
             .push(new_conversation_id);
         self.conversations_by_id
@@ -1175,7 +1181,7 @@ impl BlocklistAIHistoryModel {
 
         ctx.emit(BlocklistAIHistoryEvent::StartedNewConversation {
             new_conversation_id,
-            owner_id,
+            terminal_surface_id,
         });
 
         new_conversation_id
@@ -1185,25 +1191,25 @@ impl BlocklistAIHistoryModel {
         &mut self,
         block_id: BlockId,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Result<TaskId, UpdateHistoryError> {
         let conversation = self
             .conversations_by_id
             .get_mut(&conversation_id)
             .ok_or(UpdateHistoryError::ConversationNotFound(conversation_id))?;
-        Ok(conversation.create_optimistic_cli_subagent_task(&block_id, owner_id, ctx))
+        Ok(conversation.create_optimistic_cli_subagent_task(&block_id, terminal_surface_id, ctx))
     }
 
     pub fn update_conversation_status(
         &mut self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         status: ConversationStatus,
         ctx: &mut ModelContext<Self>,
     ) {
         self.update_conversation_status_with_error_message(
-            owner_id,
+            terminal_surface_id,
             conversation_id,
             status,
             None,
@@ -1213,21 +1219,26 @@ impl BlocklistAIHistoryModel {
 
     pub fn update_conversation_status_with_error_message(
         &mut self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         status: ConversationStatus,
         error_message: Option<String>,
         ctx: &mut ModelContext<Self>,
     ) {
         if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
-            conversation.update_status_with_error_message(status, error_message, owner_id, ctx);
+            conversation.update_status_with_error_message(
+                status,
+                error_message,
+                terminal_surface_id,
+                ctx,
+            );
         }
     }
 
     pub fn on_forked_conversation(
         &mut self,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         // When a conversation is forked and restored for a new owner,
@@ -1238,7 +1249,7 @@ impl BlocklistAIHistoryModel {
                 let is_hidden = conversation.is_exchange_hidden(exchange.id);
                 ctx.emit(BlocklistAIHistoryEvent::UpdatedStreamingExchange {
                     exchange_id: exchange.id,
-                    owner_id,
+                    terminal_surface_id,
                     conversation_id,
                     is_hidden,
                 });
@@ -1250,7 +1261,7 @@ impl BlocklistAIHistoryModel {
         &mut self,
         stream_id: &ResponseStreamId,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         init_event: warp_multi_agent_api::response_event::StreamInit,
         ctx: &mut ModelContext<Self>,
     ) {
@@ -1259,9 +1270,12 @@ impl BlocklistAIHistoryModel {
         if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
             let had_token_before = conversation.server_conversation_token().is_some();
 
-            if let Err(e) = conversation
-                .initialize_output_for_response_stream(stream_id, init_event, owner_id, ctx)
-            {
+            if let Err(e) = conversation.initialize_output_for_response_stream(
+                stream_id,
+                init_event,
+                terminal_surface_id,
+                ctx,
+            ) {
                 log::warn!("Failed to update conversation with updated streamed output: {e}");
             }
 
@@ -1286,7 +1300,7 @@ impl BlocklistAIHistoryModel {
         if should_emit_server_token_assigned {
             ctx.emit(BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
                 conversation_id,
-                owner_id,
+                terminal_surface_id,
             });
         }
     }
@@ -1300,7 +1314,7 @@ impl BlocklistAIHistoryModel {
         conversation_id: AIConversationId,
         run_id: String,
         task_id: Option<crate::ai::ambient_agents::AmbientAgentTaskId>,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         let (agent_key, server_token) = {
@@ -1332,7 +1346,7 @@ impl BlocklistAIHistoryModel {
         self.persist_conversation_state(conversation_id, ctx);
         ctx.emit(BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
             conversation_id,
-            owner_id,
+            terminal_surface_id,
         });
     }
 
@@ -1356,7 +1370,7 @@ impl BlocklistAIHistoryModel {
         old_conversation_id: AIConversationId,
         response_stream_id: &ResponseStreamId,
         start_from_message_id: MessageId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Result<AIConversationId, UpdateHistoryError> {
         let exchange_ids_to_transfer: Vec<AIAgentExchangeId> = self
@@ -1381,7 +1395,8 @@ impl BlocklistAIHistoryModel {
             exchange_ids_to_transfer.len()
         );
 
-        let new_conversation_id = self.start_new_conversation(owner_id, false, false, false, ctx);
+        let new_conversation_id =
+            self.start_new_conversation(terminal_surface_id, false, false, false, ctx);
         for exchange_id in exchange_ids_to_transfer {
             let old_conversation = self
                 .conversations_by_id
@@ -1400,7 +1415,7 @@ impl BlocklistAIHistoryModel {
             new_conversation.append_reassigned_exchange(
                 response_stream_id,
                 exchange,
-                owner_id,
+                terminal_surface_id,
                 ctx,
             )?;
         }
@@ -1414,14 +1429,14 @@ impl BlocklistAIHistoryModel {
             ))?;
         old_conversation.mark_completed_after_successful_split(
             response_stream_id,
-            owner_id,
+            terminal_surface_id,
             ctx,
         )?;
 
-        self.set_active_conversation_id(new_conversation_id, owner_id, ctx);
+        self.set_active_conversation_id(new_conversation_id, terminal_surface_id, ctx);
 
         ctx.emit(BlocklistAIHistoryEvent::SplitConversation {
-            owner_id,
+            terminal_surface_id,
             old_conversation_id,
             new_conversation_id,
         });
@@ -1696,7 +1711,7 @@ impl BlocklistAIHistoryModel {
         response_stream_id: &ResponseStreamId,
         client_actions: Vec<warp_multi_agent_api::ClientAction>,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         skill_path_origin: &SkillPathOrigin,
         ctx: &mut ModelContext<Self>,
     ) -> Result<(), UpdateHistoryError> {
@@ -1710,7 +1725,7 @@ impl BlocklistAIHistoryModel {
                         current_conversation_id,
                         response_stream_id,
                         MessageId::new(start_from_message_id),
-                        owner_id,
+                        terminal_surface_id,
                         ctx,
                     )?;
                     current_conversation_id = new_conversation_id;
@@ -1724,7 +1739,7 @@ impl BlocklistAIHistoryModel {
                     ))?;
                     conversation.apply_client_action(
                         response_stream_id,
-                        owner_id,
+                        terminal_surface_id,
                         action,
                         skill_path_origin,
                         ctx,
@@ -1780,13 +1795,13 @@ impl BlocklistAIHistoryModel {
         &mut self,
         stream_id: &ResponseStreamId,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) else {
             return;
         };
-        if let Err(e) = conversation.mark_request_completed(stream_id, owner_id, ctx) {
+        if let Err(e) = conversation.mark_request_completed(stream_id, terminal_surface_id, ctx) {
             log::warn!("Failed to mark exchange as completed: {e}");
         }
 
@@ -1851,17 +1866,19 @@ impl BlocklistAIHistoryModel {
         &mut self,
         stream_id: &ResponseStreamId,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         reason: CancellationReason,
         ctx: &mut ModelContext<Self>,
     ) {
         if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
             if reason.is_reverted() {
-                if let Err(e) = conversation.mark_request_cancelled_due_to_revert(owner_id, ctx) {
+                if let Err(e) =
+                    conversation.mark_request_cancelled_due_to_revert(terminal_surface_id, ctx)
+                {
                     log::warn!("Failed to mark exchange as cancelled: {e}");
                 }
             } else if let Err(e) =
-                conversation.mark_request_cancelled(stream_id, owner_id, reason, ctx)
+                conversation.mark_request_cancelled(stream_id, terminal_surface_id, reason, ctx)
             {
                 log::warn!("Failed to mark exchange as cancelled: {e}");
             }
@@ -1878,7 +1895,7 @@ impl BlocklistAIHistoryModel {
         recovery_pending: bool,
         stream_id: &ResponseStreamId,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
@@ -1886,7 +1903,7 @@ impl BlocklistAIHistoryModel {
                 stream_id,
                 error.clone(),
                 recovery_pending,
-                owner_id,
+                terminal_surface_id,
                 ctx,
             ) {
                 log::warn!("Failed to mark exchange as completed with error: {e}");
@@ -1898,21 +1915,26 @@ impl BlocklistAIHistoryModel {
     /// The owner will also cancel the active stream on processing the event emitted here.
     pub(crate) fn clear_conversations_for_owner(
         &mut self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         // Cancel the active stream when we clear conversations for this owner.
-        let active_conversation_id = self.active_conversation_for_owner.remove(&owner_id);
+        let active_conversation_id = self
+            .active_conversation_for_owner
+            .remove(&terminal_surface_id);
         let mut cleared_conversation_ids: Vec<AIConversationId> = Vec::new();
-        if let Some(ids) = self.live_conversation_ids_for_owner.remove(&owner_id) {
+        if let Some(ids) = self
+            .live_conversation_ids_for_owner
+            .remove(&terminal_surface_id)
+        {
             cleared_conversation_ids.extend(ids.iter().copied());
             self.cleared_conversation_ids_for_owner
-                .entry(owner_id)
+                .entry(terminal_surface_id)
                 .and_modify(|existing| existing.extend(ids.clone()))
                 .or_insert(ids);
         }
         ctx.emit(BlocklistAIHistoryEvent::ClearedConversationsForOwner {
-            owner_id,
+            terminal_surface_id,
             active_conversation_id,
             cleared_conversation_ids,
         });
@@ -1922,17 +1944,17 @@ impl BlocklistAIHistoryModel {
     pub fn remove_conversation(
         &mut self,
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
-        self.remove_conversation_from_memory(conversation_id, Some(owner_id), ctx);
+        self.remove_conversation_from_memory(conversation_id, Some(terminal_surface_id), ctx);
     }
 
     /// Permanently delete a conversation.
     pub fn delete_conversation(
         &mut self,
         conversation_id: AIConversationId,
-        owner_id: Option<EntityId>,
+        terminal_surface_id: Option<EntityId>,
         ctx: &mut ModelContext<Self>,
     ) {
         let conversation_title = self
@@ -1946,7 +1968,7 @@ impl BlocklistAIHistoryModel {
             .get(&conversation_id)
             .and_then(|c| c.run_id());
 
-        self.remove_conversation_from_memory(conversation_id, owner_id, ctx);
+        self.remove_conversation_from_memory(conversation_id, terminal_surface_id, ctx);
 
         // Delete persisted conversation from sqlite.
         let model_event_sender = GlobalResourceHandlesProvider::as_ref(ctx)
@@ -1972,11 +1994,11 @@ impl BlocklistAIHistoryModel {
             |_, _, _| {},
         );
 
-        // Only emit the event if we have a owner_id, since the event is
-        // filtered by owner_id in handlers.
-        if let Some(owner_id) = owner_id {
+        // Only emit the event if we have a terminal_surface_id, since the event is
+        // filtered by terminal_surface_id in handlers.
+        if let Some(terminal_surface_id) = terminal_surface_id {
             ctx.emit(BlocklistAIHistoryEvent::DeletedConversation {
-                owner_id,
+                terminal_surface_id,
                 conversation_id,
                 conversation_title,
                 run_id,
@@ -1988,7 +2010,7 @@ impl BlocklistAIHistoryModel {
     fn remove_conversation_from_memory(
         &mut self,
         conversation_id: AIConversationId,
-        owner_id: Option<EntityId>,
+        terminal_surface_id: Option<EntityId>,
         ctx: &mut ModelContext<Self>,
     ) {
         // Capture the run_id BEFORE the in-memory record is dropped so the
@@ -2026,22 +2048,29 @@ impl BlocklistAIHistoryModel {
         self.all_conversations_metadata.remove(&conversation_id);
         self.conversations_by_id.remove(&conversation_id);
 
-        if let Some(owner_id) = owner_id {
+        if let Some(terminal_surface_id) = terminal_surface_id {
             if self
                 .active_conversation_for_owner
-                .get(&owner_id)
+                .get(&terminal_surface_id)
                 .is_some_and(|id| *id == conversation_id)
             {
-                self.active_conversation_for_owner.remove(&owner_id);
+                self.active_conversation_for_owner
+                    .remove(&terminal_surface_id);
             }
-            if let Some(vec) = self.live_conversation_ids_for_owner.get_mut(&owner_id) {
+            if let Some(vec) = self
+                .live_conversation_ids_for_owner
+                .get_mut(&terminal_surface_id)
+            {
                 vec.retain(|&id| id != conversation_id);
             }
-            if let Some(vec) = self.cleared_conversation_ids_for_owner.get_mut(&owner_id) {
+            if let Some(vec) = self
+                .cleared_conversation_ids_for_owner
+                .get_mut(&terminal_surface_id)
+            {
                 vec.retain(|&id| id != conversation_id);
             }
             ctx.emit(BlocklistAIHistoryEvent::RemoveConversation {
-                owner_id,
+                terminal_surface_id,
                 conversation_id,
                 run_id,
             });
@@ -2055,51 +2084,57 @@ impl BlocklistAIHistoryModel {
             .any(|conversation_ids| conversation_ids.contains(&conversation_id))
     }
 
-    pub fn mark_owner_as_ambient_agent_session_view(&mut self, owner_id: EntityId) {
-        self.ambient_agent_owner_ids.insert(owner_id);
+    pub fn mark_owner_as_ambient_agent_session_view(&mut self, terminal_surface_id: EntityId) {
+        self.ambient_agent_terminal_surface_ids
+            .insert(terminal_surface_id);
     }
 
-    pub fn mark_owner_as_conversation_transcript_viewer(&mut self, owner_id: EntityId) {
-        self.conversation_transcript_viewer_owner_ids
-            .insert(owner_id);
+    pub fn mark_owner_as_conversation_transcript_viewer(&mut self, terminal_surface_id: EntityId) {
+        self.conversation_transcript_viewer_terminal_surface_ids
+            .insert(terminal_surface_id);
     }
 
-    pub fn is_owner_conversation_transcript_viewer(&self, owner_id: EntityId) -> bool {
-        self.conversation_transcript_viewer_owner_ids
-            .contains(&owner_id)
+    pub fn is_owner_conversation_transcript_viewer(&self, terminal_surface_id: EntityId) -> bool {
+        self.conversation_transcript_viewer_terminal_surface_ids
+            .contains(&terminal_surface_id)
     }
 
     /// Returns [`AIQueryHistory`]s from all sources: live conversations, cleared conversations,
     /// and persisted queries from conversations not loaded in memory.
     ///
-    /// When `owner_id` is provided, queries from that owner are categorized as
+    /// When `terminal_surface_id` is provided, queries from that owner are categorized as
     /// `CurrentSession` and all others as `DifferentSession`. When `None`, all queries are
     /// categorized as `DifferentSession`.
     ///
     /// Ambient agent sessions are always excluded.
     pub(crate) fn all_ai_queries(
         &self,
-        owner_id: Option<EntityId>,
+        terminal_surface_id: Option<EntityId>,
     ) -> impl Iterator<Item = AIQueryHistory> + '_ {
         // Collect all conversation IDs that are already in memory (live or cleared)
         // and build query vectors in the same loops
         let mut loaded_conversation_ids: HashSet<AIConversationId> = HashSet::new();
 
         let mut live_queries_vec = Vec::new();
-        for (conversation_owner_id, conversation_ids) in self.live_conversation_ids_for_owner.iter()
+        for (conversation_terminal_surface_id, conversation_ids) in
+            self.live_conversation_ids_for_owner.iter()
         {
             loaded_conversation_ids.extend(conversation_ids);
 
             // Skip shared ambient agent sessions
-            if self.ambient_agent_owner_ids.contains(conversation_owner_id) {
+            if self
+                .ambient_agent_terminal_surface_ids
+                .contains(conversation_terminal_surface_id)
+            {
                 continue;
             }
 
-            let history_order = if owner_id.is_some_and(|id| id == *conversation_owner_id) {
-                HistoryOrder::CurrentSession
-            } else {
-                HistoryOrder::DifferentSession
-            };
+            let history_order =
+                if terminal_surface_id.is_some_and(|id| id == *conversation_terminal_surface_id) {
+                    HistoryOrder::CurrentSession
+                } else {
+                    HistoryOrder::DifferentSession
+                };
 
             for conversation_id in conversation_ids {
                 if let Some(conversation) = self.conversations_by_id.get(conversation_id) {
@@ -2123,16 +2158,17 @@ impl BlocklistAIHistoryModel {
         }
 
         let mut cleared_queries_vec = Vec::new();
-        for (conversation_owner_id, conversation_ids) in
+        for (conversation_terminal_surface_id, conversation_ids) in
             self.cleared_conversation_ids_for_owner.iter()
         {
             loaded_conversation_ids.extend(conversation_ids);
 
-            let history_order = if owner_id.is_some_and(|id| id == *conversation_owner_id) {
-                HistoryOrder::CurrentSession
-            } else {
-                HistoryOrder::DifferentSession
-            };
+            let history_order =
+                if terminal_surface_id.is_some_and(|id| id == *conversation_terminal_surface_id) {
+                    HistoryOrder::CurrentSession
+                } else {
+                    HistoryOrder::DifferentSession
+                };
 
             for conversation_id in conversation_ids {
                 if let Some(conversation) = self.conversations_by_id.get(conversation_id) {
@@ -2170,14 +2206,22 @@ impl BlocklistAIHistoryModel {
     /// The active conversation is the one we're currently or have most recently streamed outputs for.
     /// If you want to check what conversation the next query will follow up in / what is selected in the input selector,
     /// use `context_model.selected_conversation_id` instead.
-    pub(crate) fn active_conversation_id(&self, owner_id: EntityId) -> Option<AIConversationId> {
-        let active_conversation_id = self.active_conversation_for_owner.get(&owner_id).copied()?;
+    pub(crate) fn active_conversation_id(
+        &self,
+        terminal_surface_id: EntityId,
+    ) -> Option<AIConversationId> {
+        let active_conversation_id = self
+            .active_conversation_for_owner
+            .get(&terminal_surface_id)
+            .copied()?;
 
-        let conversation_ids_for_owner = self.live_conversation_ids_for_owner.get(&owner_id)?;
+        let conversation_ids_for_owner = self
+            .live_conversation_ids_for_owner
+            .get(&terminal_surface_id)?;
 
         if !conversation_ids_for_owner.contains(&active_conversation_id) {
             log::warn!(
-                "The active conversation ID {active_conversation_id:?} was not found in the list of conversation IDs for owner {owner_id:?}. Conversation IDs: {conversation_ids_for_owner:?}"
+                "The active conversation ID {active_conversation_id:?} was not found in the list of conversation IDs for owner {terminal_surface_id:?}. Conversation IDs: {conversation_ids_for_owner:?}"
             );
             return None;
         }
@@ -2187,9 +2231,12 @@ impl BlocklistAIHistoryModel {
 
     /// Returns the last conversation ID created for an owner, if one exists.
     #[cfg_attr(target_family = "wasm", allow(unused))]
-    pub(crate) fn last_conversation_id(&self, owner_id: EntityId) -> Option<AIConversationId> {
+    pub(crate) fn last_conversation_id(
+        &self,
+        terminal_surface_id: EntityId,
+    ) -> Option<AIConversationId> {
         self.live_conversation_ids_for_owner
-            .get(&owner_id)?
+            .get(&terminal_surface_id)?
             .last()
             .copied()
     }
@@ -2197,7 +2244,7 @@ impl BlocklistAIHistoryModel {
     /// Set the hidden status of the exchange with the given ID.
     pub fn set_exchange_hidden_status(
         &mut self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         exchange_id: AIAgentExchangeId,
         is_hidden: bool,
@@ -2206,7 +2253,7 @@ impl BlocklistAIHistoryModel {
         let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) else {
             return;
         };
-        conversation.set_is_exchange_hidden(exchange_id, is_hidden, owner_id, ctx);
+        conversation.set_is_exchange_hidden(exchange_id, is_hidden, terminal_surface_id, ctx);
     }
 
     pub fn set_viewing_shared_session_for_conversation(
@@ -2228,7 +2275,7 @@ impl BlocklistAIHistoryModel {
     pub fn toggle_autoexecute_override(
         &mut self,
         conversation_id: &AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) {
         let Some(conversation) = self.conversations_by_id.get_mut(conversation_id) else {
@@ -2237,7 +2284,9 @@ impl BlocklistAIHistoryModel {
 
         conversation.toggle_autoexecute_override();
         conversation.write_updated_conversation_state(ctx);
-        ctx.emit(BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { owner_id });
+        ctx.emit(BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride {
+            terminal_surface_id,
+        });
     }
 
     /// Truncates a conversation from the given exchange ID, removing all exchanges
@@ -2265,9 +2314,9 @@ impl BlocklistAIHistoryModel {
     /// Excludes passive code generation exchanges from consideration.
     pub fn latest_exchange_across_all_conversations(
         &self,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     ) -> Option<&AIAgentExchange> {
-        self.all_live_root_task_exchanges_for_owner(owner_id)
+        self.all_live_root_task_exchanges_for_owner(terminal_surface_id)
             .filter(|exchange| !exchange.has_passive_request())
             .max_by_key(|exchange| exchange.start_time)
     }
@@ -2277,10 +2326,10 @@ impl BlocklistAIHistoryModel {
     pub fn conversation_id_for_exchange(
         &self,
         exchange_id: AIAgentExchangeId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     ) -> Option<AIConversationId> {
         self.live_conversation_ids_for_owner
-            .get(&owner_id)?
+            .get(&terminal_surface_id)?
             .iter()
             .find(|conversation_id| {
                 self.conversations_by_id
@@ -2419,8 +2468,8 @@ impl BlocklistAIHistoryModel {
     /// Mark conversations as historical
     /// Historical conversations consist of non-live conversations that were read from the disk or server on startup,
     /// and conversations (recorded here) that were live this session but have now been cleared.
-    pub fn mark_conversations_historical_for_owner(&mut self, owner_id: EntityId) {
-        if self.is_owner_conversation_transcript_viewer(owner_id) {
+    pub fn mark_conversations_historical_for_owner(&mut self, terminal_surface_id: EntityId) {
+        if self.is_owner_conversation_transcript_viewer(terminal_surface_id) {
             // We don't mark conversation transcript viewer conversations as historical,
             // as they are stored separately and should not be persisted/displayed as regular user conversations.
             return;
@@ -2431,7 +2480,7 @@ impl BlocklistAIHistoryModel {
         // In the future it might be worthwhile to check that these conversations exist in the database before marking them as historical,
         // but for now this is an edge case that we don't need to worry about too much.
         let conversations_to_mark_historical: Vec<AIConversationMetadata> = self
-            .all_live_conversations_for_owner(owner_id)
+            .all_live_conversations_for_owner(terminal_surface_id)
             .filter_map(|conversation| {
                 let conversation_id = conversation.id();
                 if !self.conversations_by_id.contains_key(&conversation_id)
@@ -2554,8 +2603,9 @@ impl BlocklistAIHistoryModel {
         self.cleared_conversation_ids_for_owner.clear();
         self.conversations_by_id.clear();
         self.active_conversation_for_owner.clear();
-        self.ambient_agent_owner_ids.clear();
-        self.conversation_transcript_viewer_owner_ids.clear();
+        self.ambient_agent_terminal_surface_ids.clear();
+        self.conversation_transcript_viewer_terminal_surface_ids
+            .clear();
         self.persisted_queries.clear();
         self.all_conversations_metadata.clear();
         self.agent_id_to_conversation_id.clear();
@@ -2662,12 +2712,12 @@ pub enum BlocklistAIHistoryEvent {
     /// A new conversation was started.
     StartedNewConversation {
         new_conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     },
 
     CreatedSubtask {
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         task_id: TaskId,
     },
 
@@ -2676,13 +2726,13 @@ pub enum BlocklistAIHistoryEvent {
     UpgradedTask {
         optimistic_id: TaskId,
         server_id: TaskId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     },
 
     AppendedExchange {
         exchange_id: AIAgentExchangeId,
         task_id: TaskId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         is_hidden: bool,
 
@@ -2692,7 +2742,7 @@ pub enum BlocklistAIHistoryEvent {
 
     ReassignedExchange {
         exchange_id: AIAgentExchangeId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         new_task_id: TaskId,
         new_conversation_id: AIConversationId,
     },
@@ -2702,14 +2752,14 @@ pub enum BlocklistAIHistoryEvent {
     #[cfg_attr(not(feature = "local_fs"), allow(dead_code))]
     UpdatedStreamingExchange {
         exchange_id: AIAgentExchangeId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         is_hidden: bool,
     },
 
     UpdatedConversationStatus {
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         /// Distinguishes a restoration from a real status set.
         update: ConversationStatusUpdate,
         /// The conversation's status after this update.
@@ -2719,34 +2769,34 @@ pub enum BlocklistAIHistoryEvent {
     /// The active conversation was set to another conversation in the history.
     SetActiveConversation {
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     },
 
     /// `conversation_id` is no longer marked as active for the given owner.
     ClearedActiveConversation {
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     },
 
     ClearedConversationsForOwner {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         active_conversation_id: Option<AIConversationId>,
-        /// All conversation ids that were live in `owner_id` before the clear.
+        /// All conversation ids that were live in `terminal_surface_id` before the clear.
         /// Subscribers (e.g. `QueuedQueryModel`) use this to drop per-conversation state.
         cleared_conversation_ids: Vec<AIConversationId>,
     },
 
     UpdatedTodoList {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     },
 
     UpdatedAutoexecuteOverride {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     },
 
     /// Emitted when a conversation is split into two (on suggest starting new conversation)
     SplitConversation {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         old_conversation_id: AIConversationId,
         new_conversation_id: AIConversationId,
     },
@@ -2757,7 +2807,7 @@ pub enum BlocklistAIHistoryEvent {
     /// (captured before the in-memory record was dropped) so subscribers can
     /// still act on it without a history-model lookup.
     RemoveConversation {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         run_id: Option<String>,
     },
@@ -2766,7 +2816,7 @@ pub enum BlocklistAIHistoryEvent {
     /// `run_id` is captured before the in-memory record was dropped — see
     /// the note on [`Self::RemoveConversation`].
     DeletedConversation {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         conversation_title: Option<String>,
         run_id: Option<String>,
@@ -2774,27 +2824,27 @@ pub enum BlocklistAIHistoryEvent {
 
     /// Emitted when conversations are restored for an owner.
     RestoredConversations {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_ids: Vec<AIConversationId>,
     },
 
     /// Emitted when conversation metadata is updated.
-    /// `owner_id` is None when updating historical-only conversations.
+    /// `terminal_surface_id` is None when updating historical-only conversations.
     UpdatedConversationMetadata {
-        owner_id: Option<EntityId>,
+        terminal_surface_id: Option<EntityId>,
         conversation_id: AIConversationId,
     },
 
     /// Emitted when a conversation title changes.
     UpdatedConversationTitle {
-        owner_id: Option<EntityId>,
+        terminal_surface_id: Option<EntityId>,
         conversation_id: AIConversationId,
         title: String,
     },
 
     /// Emitted when conversation artifacts are updated (plans, PRs, etc.)
     UpdatedConversationArtifacts {
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
         conversation_id: AIConversationId,
         artifact: Artifact,
     },
@@ -2804,21 +2854,21 @@ pub enum BlocklistAIHistoryEvent {
     /// actions for child agent conversations.
     ConversationServerTokenAssigned {
         conversation_id: AIConversationId,
-        owner_id: EntityId,
+        terminal_surface_id: EntityId,
     },
 
     /// Emitted when a conversation moves between owners — i.e. when
     /// `set_active_conversation_id` removes the conversation from the live
-    /// list of one or more `previous_owner_id`s. The previous owners
+    /// list of one or more `previous_terminal_surface_id`s. The previous owners
     /// must drop any rendered AI blocks for this conversation so the new
     /// owner is the sole renderer; otherwise we end up with a transcript
     /// split across panes (some blocks in the old view, new exchanges in the
-    /// new view). The `owner_id()` accessor returns the previous
+    /// new view). The `terminal_surface_id()` accessor returns the previous
     /// owner so existing per-view event filters do the right thing.
     ConversationOwnershipTransferred {
         conversation_id: AIConversationId,
-        previous_owner_id: EntityId,
-        new_owner_id: EntityId,
+        previous_terminal_surface_id: EntityId,
+        new_terminal_surface_id: EntityId,
     },
 
     /// Links an executor-minted request to a freshly-created
@@ -2856,43 +2906,101 @@ pub enum BlocklistAIHistoryEvent {
 impl BlocklistAIHistoryEvent {
     /// Returns the owner ID associated with this event, if any.
     /// Returns `None` for events that apply globally (e.g., historical conversation metadata updates).
-    pub fn owner_id(&self) -> Option<EntityId> {
+    pub fn terminal_surface_id(&self) -> Option<EntityId> {
         match self {
-            BlocklistAIHistoryEvent::StartedNewConversation { owner_id, .. }
-            | BlocklistAIHistoryEvent::AppendedExchange { owner_id, .. }
-            | BlocklistAIHistoryEvent::UpdatedStreamingExchange { owner_id, .. }
-            | BlocklistAIHistoryEvent::UpdatedConversationStatus { owner_id, .. }
-            | BlocklistAIHistoryEvent::SetActiveConversation { owner_id, .. }
-            | BlocklistAIHistoryEvent::ClearedActiveConversation { owner_id, .. }
-            | BlocklistAIHistoryEvent::ClearedConversationsForOwner { owner_id, .. }
-            | BlocklistAIHistoryEvent::ReassignedExchange { owner_id, .. }
-            | BlocklistAIHistoryEvent::UpdatedTodoList { owner_id, .. }
-            | BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { owner_id, .. }
-            | BlocklistAIHistoryEvent::SplitConversation { owner_id, .. }
-            | BlocklistAIHistoryEvent::RemoveConversation { owner_id, .. }
-            | BlocklistAIHistoryEvent::DeletedConversation { owner_id, .. }
-            | BlocklistAIHistoryEvent::CreatedSubtask { owner_id, .. }
-            | BlocklistAIHistoryEvent::RestoredConversations { owner_id, .. }
-            | BlocklistAIHistoryEvent::UpgradedTask { owner_id, .. }
-            | BlocklistAIHistoryEvent::ConversationOwnershipTransferred {
-                previous_owner_id: owner_id,
+            BlocklistAIHistoryEvent::StartedNewConversation {
+                terminal_surface_id,
                 ..
             }
-            | BlocklistAIHistoryEvent::UpdatedConversationArtifacts { owner_id, .. }
-            | BlocklistAIHistoryEvent::ConversationServerTokenAssigned { owner_id, .. } => {
-                Some(*owner_id)
+            | BlocklistAIHistoryEvent::AppendedExchange {
+                terminal_surface_id,
+                ..
             }
+            | BlocklistAIHistoryEvent::UpdatedStreamingExchange {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::UpdatedConversationStatus {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::SetActiveConversation {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::ClearedActiveConversation {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::ClearedConversationsForOwner {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::ReassignedExchange {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::UpdatedTodoList {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::SplitConversation {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::RemoveConversation {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::DeletedConversation {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::CreatedSubtask {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::RestoredConversations {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::UpgradedTask {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::ConversationOwnershipTransferred {
+                previous_terminal_surface_id: terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
+                terminal_surface_id,
+                ..
+            } => Some(*terminal_surface_id),
             // UpdatedConversationMetadata can have None when updating historical-only conversations
-            BlocklistAIHistoryEvent::UpdatedConversationMetadata { owner_id, .. }
-            | BlocklistAIHistoryEvent::UpdatedConversationTitle { owner_id, .. } => *owner_id,
+            BlocklistAIHistoryEvent::UpdatedConversationMetadata {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::UpdatedConversationTitle {
+                terminal_surface_id,
+                ..
+            } => *terminal_surface_id,
             // NewConversationRequestComplete is executor-scoped and has no
-            // owner_id.
+            // terminal_surface_id.
             BlocklistAIHistoryEvent::NewConversationRequestComplete { .. } => None,
             // OrchestrationConfigUpdated is conversation-scoped and has no
-            // owner_id.
+            // terminal_surface_id.
             BlocklistAIHistoryEvent::OrchestrationConfigUpdated { .. } => None,
             // ConversationUsageMetadataUpdated is conversation-scoped and
-            // has no owner_id. Cross-pane consumers (e.g. the
+            // has no terminal_surface_id. Cross-pane consumers (e.g. the
             // orchestrator footer reading descendant credits) can't be
             // disambiguated by a single owner pane.
             BlocklistAIHistoryEvent::ConversationUsageMetadataUpdated { .. } => None,

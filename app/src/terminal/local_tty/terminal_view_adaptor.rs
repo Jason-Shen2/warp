@@ -476,11 +476,11 @@ fn wire_up_terminal_view_session_sharing(
         move |_, event, ctx| {
             match event {
                 BlocklistAIHistoryEvent::UpdatedStreamingExchange {
-                    owner_id,
+                    terminal_surface_id,
                     conversation_id,
                     ..
                 } => {
-                    if *owner_id != view_id_for_stream_init {
+                    if *terminal_surface_id != view_id_for_stream_init {
                         return;
                     }
 
@@ -517,8 +517,10 @@ fn wire_up_terminal_view_session_sharing(
                         ctx,
                     );
                 }
-                BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { owner_id } => {
-                    if *owner_id != view_id_for_stream_init {
+                BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride {
+                    terminal_surface_id,
+                } => {
+                    if *terminal_surface_id != view_id_for_stream_init {
                         return;
                     }
 
@@ -555,10 +557,10 @@ fn wire_up_terminal_view_session_sharing(
                 // `UpdateSourceType` upstream message) until they
                 // reconnect.
                 BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
-                    owner_id,
+                    terminal_surface_id,
                     conversation_id,
                 } => {
-                    if *owner_id != view_id_for_stream_init {
+                    if *terminal_surface_id != view_id_for_stream_init {
                         return;
                     }
 

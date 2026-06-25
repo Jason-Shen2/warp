@@ -14,6 +14,7 @@ use warpui::{
 };
 
 use super::agent_view::{AgentViewController, AgentViewEntryOrigin, EnterAgentViewError};
+use super::agent_view_integration::AgentViewIntegration;
 use super::block::DirectoryContext;
 use super::history_model::BlocklistAIHistoryModel;
 use super::BlocklistAIHistoryEvent;
@@ -132,7 +133,7 @@ pub struct BlocklistAIContextModel {
     /// When set, the document content will be attached as plain text context.
     pending_document_id: Option<AIDocumentId>,
 
-    agent_view_controller: Option<ModelHandle<AgentViewController>>,
+    agent_view_integration: AgentViewIntegration,
 
     /// Block IDs of user-executed commands to be auto-attached as context.
     /// When `AgentViewBlockContext` is enabled, completed user commands are tracked here
@@ -179,7 +180,45 @@ impl BlocklistAIContextModel {
         model_event_dispatcher: &ModelHandle<ModelEventDispatcher>,
         terminal_model: Arc<FairMutex<TerminalModel>>,
         terminal_view_id: EntityId,
-        agent_view_controller: Option<ModelHandle<AgentViewController>>,
+        agent_view_controller: ModelHandle<AgentViewController>,
+        ctx: &mut ModelContext<Self>,
+    ) -> Self {
+        Self::new_with_agent_view_integration(
+            sessions,
+            model_event_dispatcher,
+            terminal_model,
+            terminal_view_id,
+            AgentViewIntegration::Gui(agent_view_controller),
+            ctx,
+        )
+    }
+
+    /// Creates context state for a headless surface that owns its conversation selection.
+    #[cfg(feature = "tui")]
+    pub(crate) fn new_for_headless_surface(
+        sessions: ModelHandle<Sessions>,
+        model_event_dispatcher: &ModelHandle<ModelEventDispatcher>,
+        terminal_model: Arc<FairMutex<TerminalModel>>,
+        terminal_surface_id: EntityId,
+        ctx: &mut ModelContext<Self>,
+    ) -> Self {
+        Self::new_with_agent_view_integration(
+            sessions,
+            model_event_dispatcher,
+            terminal_model,
+            terminal_surface_id,
+            AgentViewIntegration::Headless,
+            ctx,
+        )
+    }
+
+    /// Creates context state with the surface's explicit Agent View integration mode.
+    fn new_with_agent_view_integration(
+        sessions: ModelHandle<Sessions>,
+        model_event_dispatcher: &ModelHandle<ModelEventDispatcher>,
+        terminal_model: Arc<FairMutex<TerminalModel>>,
+        terminal_view_id: EntityId,
+        agent_view_integration: AgentViewIntegration,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
         ctx.subscribe_to_model(
@@ -194,8 +233,8 @@ impl BlocklistAIContextModel {
                     // blocks for auto-attachment as context.
                     if FeatureFlag::AgentViewBlockContext.is_enabled()
                         && me
-                            .agent_view_controller
-                            .as_ref()
+                            .agent_view_integration
+                            .controller()
                             .is_some_and(|controller| controller.as_ref(ctx).is_fullscreen())
                         && !user_block_completed.was_part_of_agent_interaction
                     {
@@ -224,7 +263,10 @@ impl BlocklistAIContextModel {
         ctx.subscribe_to_model(
             &BlocklistAIHistoryModel::handle(ctx),
             |me, _, event, ctx| {
-                if event.owner_id().is_some_and(|id| id != me.terminal_view_id) {
+                if event
+                    .terminal_surface_id()
+                    .is_some_and(|id| id != me.terminal_view_id)
+                {
                     return;
                 }
 
@@ -232,7 +274,7 @@ impl BlocklistAIContextModel {
                     BlocklistAIHistoryEvent::ClearedConversationsForOwner { .. } => {
                         me.set_pending_query_state(PendingQueryState::default(), ctx);
                         if FeatureFlag::AgentView.is_enabled() {
-                            if let Some(controller) = &me.agent_view_controller {
+                            if let Some(controller) = me.agent_view_integration.controller() {
                                 controller.update(ctx, |controller, ctx| {
                                     controller.exit_agent_view(ctx);
                                 });
@@ -262,7 +304,7 @@ impl BlocklistAIContextModel {
                         conversation_id,
                         ..
                     } => {
-                        if me.agent_view_controller.is_none()
+                        if me.agent_view_integration.is_headless()
                             && me.selected_conversation_id(ctx) == Some(*conversation_id)
                         {
                             me.set_pending_query_state(PendingQueryState::default(), ctx);
@@ -284,7 +326,7 @@ impl BlocklistAIContextModel {
         });
 
         // Clear auto-attached blocks when exiting agent view or switching conversations
-        if let Some(agent_view_controller) = &agent_view_controller {
+        if let Some(agent_view_controller) = agent_view_integration.controller() {
             ctx.subscribe_to_model(agent_view_controller, |me, _, event, _ctx| {
                 use super::agent_view::AgentViewControllerEvent;
                 match event {
@@ -317,7 +359,7 @@ impl BlocklistAIContextModel {
             pending_attachments: Default::default(),
             pending_query_state,
             terminal_view_id,
-            agent_view_controller,
+            agent_view_integration,
             pending_inline_diff_hunk_attachments: Default::default(),
             pending_document_id: None,
             auto_attached_agent_view_user_block_ids: Vec::new(),
@@ -327,13 +369,40 @@ impl BlocklistAIContextModel {
     /// Test-only constructor that skips every subscription and singleton lookup performed by
     /// [`Self::new`], so unit tests can build a [`BlocklistAIContextModel`] without registering
     /// `BlocklistAIHistoryModel`, `LLMPreferences`, `ModelEventDispatcher`, `Sessions`, or
-    /// `AppExecutionMode`. Callers still pass a real [`TerminalModel`] and may
-    /// pass an [`AgentViewController`] handle to exercise GUI selection behavior.
+    /// `AppExecutionMode`. Callers still pass real [`TerminalModel`] and
+    /// [`AgentViewController`] handles to exercise GUI selection behavior.
     #[cfg(test)]
     pub(crate) fn new_for_test(
         terminal_model: Arc<FairMutex<TerminalModel>>,
         terminal_view_id: EntityId,
-        agent_view_controller: Option<ModelHandle<AgentViewController>>,
+        agent_view_controller: ModelHandle<AgentViewController>,
+    ) -> Self {
+        Self::new_for_test_with_agent_view_integration(
+            terminal_model,
+            terminal_view_id,
+            AgentViewIntegration::Gui(agent_view_controller),
+        )
+    }
+
+    /// Builds headless context state without registering production subscriptions.
+    #[cfg(test)]
+    pub(crate) fn new_for_headless_surface_test(
+        terminal_model: Arc<FairMutex<TerminalModel>>,
+        terminal_surface_id: EntityId,
+    ) -> Self {
+        Self::new_for_test_with_agent_view_integration(
+            terminal_model,
+            terminal_surface_id,
+            AgentViewIntegration::Headless,
+        )
+    }
+
+    /// Builds test context state with an explicit Agent View integration mode.
+    #[cfg(test)]
+    fn new_for_test_with_agent_view_integration(
+        terminal_model: Arc<FairMutex<TerminalModel>>,
+        terminal_view_id: EntityId,
+        agent_view_integration: AgentViewIntegration,
     ) -> Self {
         Self {
             terminal_model,
@@ -344,7 +413,7 @@ impl BlocklistAIContextModel {
             pending_attachments: Default::default(),
             pending_query_state: PendingQueryState::default(),
             terminal_view_id,
-            agent_view_controller,
+            agent_view_integration,
             pending_inline_diff_hunk_attachments: Default::default(),
             pending_document_id: None,
             auto_attached_agent_view_user_block_ids: Vec::new(),
@@ -752,7 +821,7 @@ impl BlocklistAIContextModel {
         ctx: &mut ModelContext<Self>,
     ) {
         self.set_pending_query_state(PendingQueryState::Existing { conversation_id }, ctx);
-        if let Some(agent_view_controller) = &self.agent_view_controller {
+        if let Some(agent_view_controller) = self.agent_view_integration.controller() {
             if let Err(e) = agent_view_controller.update(ctx, |controller, ctx| {
                 controller.try_enter_agent_view(Some(conversation_id), origin, ctx)
             }) {
@@ -770,7 +839,7 @@ impl BlocklistAIContextModel {
     ) {
         self.set_pending_query_state(PendingQueryState::default(), ctx);
 
-        if let Some(agent_view_controller) = &self.agent_view_controller {
+        if let Some(agent_view_controller) = self.agent_view_integration.controller() {
             if let Err(e) = agent_view_controller.update(ctx, |controller, ctx| {
                 controller.try_enter_agent_view(None, origin, ctx)
             }) {
@@ -790,7 +859,7 @@ impl BlocklistAIContextModel {
         ctx: &mut ModelContext<Self>,
     ) -> Result<AIConversationId, EnterAgentViewError> {
         let (conversation_id, pending_query_state) = if let Some(agent_view_controller) =
-            &self.agent_view_controller
+            self.agent_view_integration.controller()
         {
             let conversation_id = agent_view_controller.update(ctx, |controller, ctx| {
                 controller.try_enter_agent_view(None, origin, ctx)
@@ -837,7 +906,7 @@ impl BlocklistAIContextModel {
     /// Returns the conversation ID the pending query is following up for, if any.
     /// None if the pending query should start a new conversation.
     pub fn selected_conversation_id(&self, ctx: &AppContext) -> Option<AIConversationId> {
-        if let Some(agent_view_controller) = &self.agent_view_controller {
+        if let Some(agent_view_controller) = self.agent_view_integration.controller() {
             return agent_view_controller
                 .as_ref(ctx)
                 .agent_view_state()

@@ -11,7 +11,7 @@ Use WarpUI `EntityId` as the opaque routing key for a conversation owner. Histor
 Generalize owner-shaped history fields, methods, and events from terminal-view terminology to owner terminology:
 - live and cleared conversation IDs are keyed by owner
 - active/progress conversation is keyed by owner
-- owner-scoped history methods and events accept or emit `EntityId` values named `owner_id`
+- owner-scoped history methods and events accept or emit `EntityId` values named `terminal_surface_id`
 GUI-local APIs and variables keep terminal-view terminology where they still represent GUI `TerminalView` IDs. The owner-oriented history boundary does not introduce a separate owner type or expose GUI-specific naming.
 ### Per-surface selected conversation
 Preserve one selected-conversation implementation per surface:

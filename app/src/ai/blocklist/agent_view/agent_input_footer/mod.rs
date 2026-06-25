@@ -776,7 +776,10 @@ impl AgentInputFooter {
         ctx.subscribe_to_model(
             &BlocklistAIHistoryModel::handle(ctx),
             |me, _, event, ctx| {
-                if event.owner_id().is_some_and(|id| id != me.terminal_view_id) {
+                if event
+                    .terminal_surface_id()
+                    .is_some_and(|id| id != me.terminal_view_id)
+                {
                     return;
                 }
                 me.update_ftu_callout_render_state(ctx);

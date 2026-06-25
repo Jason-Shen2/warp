@@ -225,12 +225,17 @@ fn mock_response_stream_updates_history_through_controller() {
         });
 
         let (conversation_id, stream) = terminal.update(&mut app, |view, ctx| {
-            let owner_id = view.id();
+            let terminal_surface_id = view.id();
             let stream_id = ResponseStreamId::new_for_test();
             let conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-                    let conversation_id =
-                        history.start_new_conversation(owner_id, false, false, false, ctx);
+                    let conversation_id = history.start_new_conversation(
+                        terminal_surface_id,
+                        false,
+                        false,
+                        false,
+                        ctx,
+                    );
                     let task_id = history
                         .conversation(&conversation_id)
                         .unwrap()
@@ -251,7 +256,7 @@ fn mock_response_stream_updates_history_through_controller() {
                                 supported_tools_override: None,
                             },
                             stream_id.clone(),
-                            owner_id,
+                            terminal_surface_id,
                             ctx,
                         )
                         .unwrap();

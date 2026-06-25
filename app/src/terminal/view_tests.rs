@@ -227,7 +227,7 @@ fn append_exchange_with_inputs_and_handle_event(
         &BlocklistAIHistoryEvent::AppendedExchange {
             exchange_id,
             task_id: task_id.clone(),
-            owner_id: view.view_id,
+            terminal_surface_id: view.view_id,
             conversation_id,
             is_hidden: false,
             response_stream_id: Some(response_stream_id.clone()),
@@ -263,7 +263,7 @@ fn update_exchange_input_and_handle_event(
         history_model,
         &BlocklistAIHistoryEvent::UpdatedStreamingExchange {
             exchange_id,
-            owner_id: view.view_id,
+            terminal_surface_id: view.view_id,
             conversation_id,
             is_hidden: false,
         },
@@ -394,7 +394,7 @@ fn updated_conversation_metadata_refreshes_selected_conversation_pane_title() {
             view.handle_ai_history_model_event(
                 BlocklistAIHistoryModel::handle(ctx),
                 &BlocklistAIHistoryEvent::UpdatedConversationTitle {
-                    owner_id: Some(view.view_id),
+                    terminal_surface_id: Some(view.view_id),
                     conversation_id,
                     title: "Renamed title".to_string(),
                 },
@@ -947,7 +947,7 @@ fn restoring_conversation_to_new_pane_transfers_blocks_from_previous_owner() {
                 .map(|conversation| conversation.id())
                 .collect::<Vec<_>>();
             assert_eq!(
-                history.owner_id_for_conversation(&conversation_id),
+                history.terminal_surface_id_for_conversation(&conversation_id),
                 Some(restored_view_id)
             );
             assert!(original_owner_live_conversation_ids.is_empty());
@@ -1089,7 +1089,7 @@ fn clicking_old_banner_for_open_conversation_focuses_current_owner_without_trans
 
         BlocklistAIHistoryModel::handle(&app).read(&app, |history, _| {
             assert_eq!(
-                history.owner_id_for_conversation(&conversation_id),
+                history.terminal_surface_id_for_conversation(&conversation_id),
                 Some(restored_view_id)
             );
             assert!(history
@@ -1158,7 +1158,7 @@ fn appended_exchange_renders_in_current_owner_after_conversation_transfer() {
 
         BlocklistAIHistoryModel::handle(&app).read(&app, |history, _| {
             assert_eq!(
-                history.owner_id_for_conversation(&conversation_id),
+                history.terminal_surface_id_for_conversation(&conversation_id),
                 Some(transferred_owner_view_id)
             );
         });
@@ -1203,7 +1203,7 @@ fn appended_exchange_renders_in_current_owner_after_conversation_transfer() {
                 &BlocklistAIHistoryEvent::AppendedExchange {
                     exchange_id,
                     task_id: task_id.clone(),
-                    owner_id: original_owner_view_id,
+                    terminal_surface_id: original_owner_view_id,
                     conversation_id,
                     is_hidden: false,
                     response_stream_id: Some(response_stream_id.clone()),
@@ -1218,7 +1218,7 @@ fn appended_exchange_renders_in_current_owner_after_conversation_transfer() {
                 &BlocklistAIHistoryEvent::AppendedExchange {
                     exchange_id,
                     task_id,
-                    owner_id: original_owner_view_id,
+                    terminal_surface_id: original_owner_view_id,
                     conversation_id,
                     is_hidden: false,
                     response_stream_id: Some(response_stream_id),

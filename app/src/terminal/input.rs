@@ -3199,7 +3199,7 @@ impl Input {
                 if !affects_hint {
                     return;
                 }
-                if event.owner_id() != Some(terminal_view_id) {
+                if event.terminal_surface_id() != Some(terminal_view_id) {
                     return;
                 }
                 me.set_zero_state_hint_text(ctx);

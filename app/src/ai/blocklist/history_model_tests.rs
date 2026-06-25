@@ -3383,7 +3383,7 @@ fn test_fork_then_bind_handoff_token_updates_cached_metadata_and_emits_refresh_e
             events.iter().any(|event| matches!(
                 event,
                 BlocklistAIHistoryEvent::UpdatedConversationMetadata {
-                    owner_id: Some(id),
+                    terminal_surface_id: Some(id),
                     conversation_id,
                 } if *id == fork_terminal_view_id && *conversation_id == forked_id
             )),
@@ -3393,7 +3393,7 @@ fn test_fork_then_bind_handoff_token_updates_cached_metadata_and_emits_refresh_e
             events.iter().any(|event| matches!(
                 event,
                 BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
-                    owner_id: id,
+                    terminal_surface_id: id,
                     conversation_id,
                 } if *id == fork_terminal_view_id && *conversation_id == forked_id
             )),

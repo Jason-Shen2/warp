@@ -174,10 +174,14 @@ impl OrchestrationViewerModel {
         self.maybe_backfill_parent_agent_ids(event, ctx);
 
         match event {
-            BlocklistAIHistoryEvent::SetActiveConversation { owner_id, .. }
-            | BlocklistAIHistoryEvent::ConversationServerTokenAssigned { owner_id, .. }
-                if *owner_id == self.terminal_view_id =>
-            {
+            BlocklistAIHistoryEvent::SetActiveConversation {
+                terminal_surface_id,
+                ..
+            }
+            | BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
+                terminal_surface_id,
+                ..
+            } if *terminal_surface_id == self.terminal_view_id => {
                 self.register_viewer_mode_consumer_if_possible(ctx);
             }
             _ => {}

@@ -136,7 +136,7 @@ fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextMode
         BlocklistAIContextModel::new_for_test(
             terminal_model,
             terminal_view_id,
-            Some(agent_view_controller),
+            agent_view_controller,
         )
     })
 }
@@ -156,10 +156,11 @@ fn build_controllerless_context_model(
         false,
         None,
     )));
-    let owner_id = EntityId::new();
-    let model =
-        app.add_model(|_| BlocklistAIContextModel::new_for_test(terminal_model, owner_id, None));
-    (model, owner_id)
+    let terminal_surface_id = EntityId::new();
+    let model = app.add_model(|_| {
+        BlocklistAIContextModel::new_for_headless_surface_test(terminal_model, terminal_surface_id)
+    });
+    (model, terminal_surface_id)
 }
 
 #[test]
@@ -192,7 +193,7 @@ fn controllerless_context_owns_selected_conversation() {
 fn controllerless_new_conversation_is_selected_and_owner_scoped() {
     App::test((), |mut app| async move {
         let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
-        let (model, owner_id) = build_controllerless_context_model(&mut app);
+        let (model, terminal_surface_id) = build_controllerless_context_model(&mut app);
 
         let conversation_id = model
             .update(&mut app, |model, ctx| {
@@ -206,7 +207,7 @@ fn controllerless_new_conversation_is_selected_and_owner_scoped() {
         history.read(&app, |history, _| {
             assert_eq!(
                 history
-                    .all_live_conversations_for_owner(owner_id)
+                    .all_live_conversations_for_owner(terminal_surface_id)
                     .map(|conversation| conversation.id())
                     .collect::<Vec<_>>(),
                 vec![conversation_id]

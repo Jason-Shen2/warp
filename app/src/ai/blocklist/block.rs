@@ -1271,7 +1271,10 @@ impl AIBlock {
         ctx.subscribe_to_model(
             &BlocklistAIHistoryModel::handle(ctx),
             |me, _, event, ctx| {
-                if event.owner_id().is_none_or(|id| id == me.terminal_view_id) {
+                if event
+                    .terminal_surface_id()
+                    .is_none_or(|id| id == me.terminal_view_id)
+                {
                     match event {
                         BlocklistAIHistoryEvent::AppendedExchange { .. }
                         | BlocklistAIHistoryEvent::UpdatedTodoList { .. }

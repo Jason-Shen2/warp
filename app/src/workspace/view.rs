@@ -3596,7 +3596,7 @@ impl Workspace {
             );
 
             if is_relevant_update
-                && event.owner_id().is_some_and(|event_id| {
+                && event.terminal_surface_id().is_some_and(|event_id| {
                     focused_terminal_view_id.is_some_and(|id| id == event_id)
                 })
             {
@@ -3646,7 +3646,7 @@ impl Workspace {
                 | BlocklistAIHistoryEvent::RestoredConversations { .. }
                 | BlocklistAIHistoryEvent::UpdatedConversationTitle { .. }
                 | BlocklistAIHistoryEvent::UpdatedConversationMetadata { .. }
-        ) && event.owner_id().is_some_and(|terminal_view_id| {
+        ) && event.terminal_surface_id().is_some_and(|terminal_view_id| {
             self.workspace_contains_terminal_view(terminal_view_id, ctx)
         })
     }
@@ -13268,7 +13268,7 @@ impl Workspace {
             .all_live_conversations()
             .into_iter()
             .find(|(_, convo)| convo.id() == conversation_id)
-            .map(|(owner_id, _)| owner_id);
+            .map(|(terminal_surface_id, _)| terminal_surface_id);
 
         // An empty prompt should not be provided as a query for the new forked conversation.
         let initial_prompt = initial_prompt.and_then(|prompt| {

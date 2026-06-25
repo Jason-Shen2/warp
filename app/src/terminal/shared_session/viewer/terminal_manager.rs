@@ -667,8 +667,10 @@ impl TerminalManager {
                     // are forced to be handled here
                     #[allow(clippy::single_match)]
                     match event {
-                        BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride { owner_id } => {
-                            if *owner_id != view_id_for_auto {
+                        BlocklistAIHistoryEvent::UpdatedAutoexecuteOverride {
+                            terminal_surface_id,
+                        } => {
+                            if *terminal_surface_id != view_id_for_auto {
                                 return;
                             }
 

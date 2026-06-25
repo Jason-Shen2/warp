@@ -2325,7 +2325,7 @@ impl PaneGroup {
 
         // Find terminal view via document -> conversation -> terminal view.
         let terminal_view = BlocklistAIHistoryModel::as_ref(ctx)
-            .owner_id_for_conversation(&conversation_id)
+            .terminal_surface_id_for_conversation(&conversation_id)
             .and_then(|terminal_view_id| {
                 // Find the pane containing this terminal view.
                 self.pane_contents.keys().find_map(|pane_id| {
@@ -3128,7 +3128,7 @@ impl PaneGroup {
         conversation_id: AIConversationId,
         ctx: &AppContext,
     ) -> Option<EntityId> {
-        BlocklistAIHistoryModel::as_ref(ctx).owner_id_for_conversation(&conversation_id)
+        BlocklistAIHistoryModel::as_ref(ctx).terminal_surface_id_for_conversation(&conversation_id)
     }
 
     fn pane_id_for_owned_conversation(
@@ -4464,7 +4464,7 @@ impl PaneGroup {
                 let parent_id = conversation.parent_conversation_id()?;
                 let parent_owner = history_handle
                     .as_ref(ctx)
-                    .owner_id_for_conversation(&parent_id)?;
+                    .terminal_surface_id_for_conversation(&parent_id)?;
                 if parent_owner == closing_view_id {
                     return None;
                 }
@@ -4538,7 +4538,9 @@ impl PaneGroup {
                 history_model
                     .conversation(conv_id)
                     .and_then(|c| c.parent_conversation_id())
-                    .and_then(|parent_id| history_model.owner_id_for_conversation(&parent_id))
+                    .and_then(|parent_id| {
+                        history_model.terminal_surface_id_for_conversation(&parent_id)
+                    })
                     .is_some_and(|tv_id| tv_id == parent_terminal_view_id)
             })
             .map(|(conv_id, pane_id)| (*conv_id, *pane_id))
@@ -6875,8 +6877,8 @@ impl PaneGroup {
         conversation_id: AIConversationId,
         ctx: &AppContext,
     ) -> Option<PaneId> {
-        let owner_view_id =
-            BlocklistAIHistoryModel::as_ref(ctx).owner_id_for_conversation(&conversation_id)?;
+        let owner_view_id = BlocklistAIHistoryModel::as_ref(ctx)
+            .terminal_surface_id_for_conversation(&conversation_id)?;
         for pane_id in self.pane_contents.keys() {
             if let Some(terminal_view) = self.terminal_view_from_pane_id(*pane_id, ctx) {
                 if terminal_view.id() == owner_view_id {
@@ -6905,8 +6907,8 @@ impl PaneGroup {
         let Some(target_pane_id) = target_pane_id else {
             // No owning pane in this group (e.g. the conversation lives
             // in another tab). Fall back to workspace-level navigation.
-            if let Some(owner_view_id) =
-                BlocklistAIHistoryModel::as_ref(ctx).owner_id_for_conversation(&conversation_id)
+            if let Some(owner_view_id) = BlocklistAIHistoryModel::as_ref(ctx)
+                .terminal_surface_id_for_conversation(&conversation_id)
             {
                 ctx.dispatch_typed_action(&WorkspaceAction::FocusTerminalViewInWorkspace {
                     terminal_view_id: owner_view_id,
@@ -7210,7 +7212,8 @@ impl PaneGroup {
         ctx: &AppContext,
     ) {
         let history_model = BlocklistAIHistoryModel::as_ref(ctx);
-        let history_owner_view_id = history_model.owner_id_for_conversation(&conversation_id);
+        let history_owner_view_id =
+            history_model.terminal_surface_id_for_conversation(&conversation_id);
         let conversation_in_memory = history_model.conversation(&conversation_id).is_some();
         let parent_id = history_model
             .conversation(&conversation_id)

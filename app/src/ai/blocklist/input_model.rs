@@ -87,6 +87,7 @@ impl From<InputClassifierDecisionSource> for InputTypeAutoDetectionSource {
 }
 
 use super::agent_view::{AgentViewController, AgentViewControllerEvent, AgentViewEntryOrigin};
+use super::agent_view_integration::AgentViewIntegration;
 use super::context_model::BlocklistAIContextModel;
 use super::telemetry_banner::should_collect_ai_ugc_telemetry;
 use crate::input_classifier::InputClassifierModel;
@@ -208,7 +209,7 @@ pub struct BlocklistAIInputModel {
     /// if a persistent lock is in place and a buffer is submitted.
     was_lock_set_with_empty_buffer: bool,
 
-    agent_view_controller: Option<ModelHandle<AgentViewController>>,
+    agent_view_integration: AgentViewIntegration,
 
     /// Handle to the per-pane context model. Used to read pending image / file attachments
     /// when deciding whether to force-lock the input to AI mode (see
@@ -224,7 +225,41 @@ pub struct BlocklistAIInputModel {
 impl BlocklistAIInputModel {
     pub fn new(
         model: Arc<FairMutex<TerminalModel>>,
-        agent_view_controller: Option<ModelHandle<AgentViewController>>,
+        agent_view_controller: ModelHandle<AgentViewController>,
+        ai_context_model: ModelHandle<BlocklistAIContextModel>,
+        terminal_view_id: EntityId,
+        ctx: &mut ModelContext<Self>,
+    ) -> Self {
+        Self::new_with_agent_view_integration(
+            model,
+            AgentViewIntegration::Gui(agent_view_controller),
+            ai_context_model,
+            terminal_view_id,
+            ctx,
+        )
+    }
+
+    /// Creates input state for a headless surface without Agent View behavior.
+    #[cfg(feature = "tui")]
+    pub(crate) fn new_for_headless_surface(
+        model: Arc<FairMutex<TerminalModel>>,
+        ai_context_model: ModelHandle<BlocklistAIContextModel>,
+        terminal_surface_id: EntityId,
+        ctx: &mut ModelContext<Self>,
+    ) -> Self {
+        Self::new_with_agent_view_integration(
+            model,
+            AgentViewIntegration::Headless,
+            ai_context_model,
+            terminal_surface_id,
+            ctx,
+        )
+    }
+
+    /// Creates input state with the surface's explicit Agent View integration mode.
+    fn new_with_agent_view_integration(
+        model: Arc<FairMutex<TerminalModel>>,
+        agent_view_integration: AgentViewIntegration,
         ai_context_model: ModelHandle<BlocklistAIContextModel>,
         terminal_view_id: EntityId,
         ctx: &mut ModelContext<Self>,
@@ -313,7 +348,7 @@ impl BlocklistAIInputModel {
         });
 
         if FeatureFlag::AgentView.is_enabled() {
-            if let Some(agent_view_controller) = &agent_view_controller {
+            if let Some(agent_view_controller) = agent_view_integration.controller() {
                 ctx.subscribe_to_model(agent_view_controller, |me, _, event, ctx| match event {
                     AgentViewControllerEvent::EnteredAgentView {
                         display_mode,
@@ -409,7 +444,7 @@ impl BlocklistAIInputModel {
                 input_type: InputType::Shell,
                 is_locked: !is_autodetection_enabled,
             },
-            agent_view_controller,
+            agent_view_integration,
             ai_context_model,
             terminal_view_id,
             last_ai_autodetection_ts: None,
@@ -421,17 +456,17 @@ impl BlocklistAIInputModel {
         }
     }
 
-    /// Returns whether the optional GUI Agent View integration is active.
+    /// Returns whether the GUI Agent View integration is active.
     fn is_agent_view_active(&self, app: &AppContext) -> bool {
-        self.agent_view_controller
-            .as_ref()
+        self.agent_view_integration
+            .controller()
             .is_some_and(|controller| controller.as_ref(app).is_active())
     }
 
-    /// Returns whether the optional GUI Agent View integration is fullscreen.
+    /// Returns whether the GUI Agent View integration is fullscreen.
     fn is_agent_view_fullscreen(&self, app: &AppContext) -> bool {
-        self.agent_view_controller
-            .as_ref()
+        self.agent_view_integration
+            .controller()
             .is_some_and(|controller| controller.as_ref(app).is_fullscreen())
     }
 
