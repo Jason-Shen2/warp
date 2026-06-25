@@ -1,125 +1,98 @@
 # TUI conversation streaming — TECH
 ## Context
-This change productionizes the conversation-streaming part of the TUI prototype: a TUI/headless owner should be able to submit a prompt through the existing Agent Mode controller path, observe streamed response updates through the existing conversation history model, and submit a follow-up prompt against the same local conversation. It does not build the TUI transcript renderer.
-The current GUI path wires Agent Mode inside [`TerminalView::new`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/terminal/view.rs#L3127-L3818) @ `34cfe62a`: the view creates `ActiveSession`, `AgentViewController`, `BlocklistAIContextModel`, `BlocklistAIInputModel`, `BlocklistAIActionModel`, `BlocklistAIController`, and the input view, then subscribes to `BlocklistAIHistoryModel` and executor models. The first TUI streaming implementation should mirror that ownership model instead of introducing a new `AgentConversationSession` abstraction.
-`BlocklistAIHistoryModel` already owns most conversation identity and stream state. It stores live and cleared conversations by terminal view, the active conversation pointer, all in-memory conversations, and server-token reverse indexes in [`app/src/ai/blocklist/history_model.rs (195-276)`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/history_model.rs#L195-L276). It also owns the current active-conversation APIs and stream-start APIs in [`app/src/ai/blocklist/history_model.rs (1033-1169)`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/history_model.rs#L1033-L1169), and the owner-scoped history event filtering API in [`app/src/ai/blocklist/history_model.rs (2924-3007)`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/history_model.rs#L2924-L3007). The implementation should generalize those owner-shaped pieces from `terminal_view_id: EntityId` to `AgentConversationOwnerId`.
-`BlocklistAIContextModel` currently stores `PendingQueryState` and reads selected conversation through `AgentViewController` when Agent View is enabled in [`app/src/ai/blocklist/context_model.rs (809-877)`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/context_model.rs#L809-L877). That makes the GUI controller the effective selected-conversation source of truth. The new design moves selected conversation into `BlocklistAIHistoryModel` so GUI and TUI can share the same next-prompt target state.
-`BlocklistAIController` is already the correct request/streaming path. New conversations are created in [`start_new_conversation_for_request`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/controller.rs#L2278-L2301), requests are sent through [`send_request_input`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/controller.rs#L2312-L2560), and stream events are consumed by [`handle_response_stream_event`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/controller.rs#L2640-L2794). Tests can reuse the existing `ResponseStream::new_for_test` plus [`BlocklistAIController::register_mock_stream_for_test`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/controller.rs#L2619-L2634) seam.
-`AgentViewController` currently stores a conversation ID in `AgentViewState::Active` and exposes helpers such as `active_conversation_id` in [`app/src/ai/blocklist/agent_view/controller.rs (244-339)`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/agent_view/controller.rs#L244-L339). It also creates or enters conversations in [`enter_agent_view_internal`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/ai/blocklist/agent_view/controller.rs#L716-L828). The controller should keep Agent View UI/lifecycle state, but derive its displayed conversation from history selected conversation instead of storing a separate conversation identity.
-The current TUI entry point is intentionally small. [`crates/warp_tui/src/main.rs`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/crates/warp_tui/src/main.rs#L1-L40) starts the headless app through `warp::run_tui`, and [`app/src/tui.rs`](https://github.com/warpdotdev/warp/blob/34cfe62aca8cebc9aca735dbb726e097e4d2a6a7/app/src/tui.rs#L1-L97) currently proves auth reuse by logging in and printing the user ID. This spec extends that path with a prompt smoke mode; it does not require the full prototype transcript UI.
+This change creates production-shaped conversation building blocks for a future interactive TUI. A TUI surface should be able to select or start a conversation, send prompts, observe streamed responses, restore an existing conversation, and later participate in orchestration across multiple TUI surfaces. This phase does not build transcript-rendering widgets or tool/action UI.
+The GUI path already has a coherent selection and lifecycle owner: `AgentViewController` stores the displayed conversation in its conversation-bearing `AgentViewState`, copies that state into `TerminalModel` for lock-safe rendering, and coordinates Agent View entry and exit. This change preserves that contract and does not introduce alternative GUI selection APIs.
+`BlocklistAIContextModel` already represents pending composer state, including whether the next query starts a new conversation or continues an existing conversation through `PendingQueryState`. When it has an `AgentViewController`, its selected-conversation getter reads the GUI controller. When it has no controller, its own pending query state is the surface selection. The controller-less behavior is the selection model for TUI surfaces.
+`BlocklistAIHistoryModel` owns conversation data, live/cleared ownership, active/progress state, persistence metadata, and parent/child orchestration topology. Active conversation means the current or most recent stream/progress target; it is intentionally distinct from a surface's selected next-prompt target. Selection is per-surface state and is not stored in history.
+`BlocklistAIController` remains the production request and response-stream path. `TuiConversationModel` coordinates that controller, a controller-less context model, and owner-filtered history events behind a TUI-facing API.
 ## Proposed changes
 ### Conversation owner identity
-Add `AgentConversationOwnerId` as a newtype over `EntityId`, with `Copy`, `Clone`, `Debug`, `PartialEq`, `Eq`, and `Hash`. GUI code converts `TerminalView::id()` into `AgentConversationOwnerId` when crossing into conversation/history APIs; TUI/headless code converts its root app entity into the same type.
-Within `BlocklistAIHistoryModel`, rename owner-shaped fields and methods from terminal-view terminology to owner terminology in the same change:
-- `live_conversation_ids_for_terminal_view` becomes `live_conversation_ids_for_owner`.
-- `cleared_conversation_ids_for_terminal_view` becomes `cleared_conversation_ids_for_owner`.
-- `active_conversation_for_terminal_view` becomes `active_conversation_for_owner`.
-- owner-scoped methods and events use `owner_id: AgentConversationOwnerId`.
-GUI boundary code may keep local variables named `terminal_view_id` where the value is truly the GUI view ID, but the history model should not expose new `terminal_view_id` APIs.
-### Selected conversation in history
-Add `selected_conversation_for_owner: HashMap<AgentConversationOwnerId, AIConversationId>` to `BlocklistAIHistoryModel`.
-Add accessors:
-- `selected_conversation_id(owner_id) -> Option<AIConversationId>`
-- `selected_conversation(owner_id) -> Option<&AIConversation>`
-- `set_selected_conversation_id(owner_id, conversation_id, ctx)`
-- `clear_selected_conversation(owner_id, ctx)`
-`set_selected_conversation_id` should no-op with a warning if the conversation is not live for that owner. Clearing, removing, deleting, transferring ownership, and clearing all conversations for an owner must maintain the invariant that selected conversation never points at a non-live conversation.
-Starting a conversation does not select it by itself because passive/background conversations also use `start_new_conversation`. Agent View entry and user-query submission explicitly select their target conversation; passive/background requests must not steal the next user prompt target.
-Add a history event:
-- `SelectedConversationChanged { owner_id, previous_conversation_id, selected_conversation_id }`
-No event should be emitted when the selected value does not change.
-Keep active conversation naming for this phase, but clarify comments. Active conversation is the owner’s current or most recent progress/stream target. Selected conversation is the owner’s next user prompt target and the displayed conversation when Agent View is active.
-### Agent View controller state
-Do not introduce a third “open conversation” identity. `AgentViewController` should own only UI/lifecycle state:
-- active vs inactive
-- inline vs fullscreen display mode
-- entry origin
-- original exchange count when the view was entered
-- confirmation state
-When Agent View is active, `AgentViewController` should derive the current conversation from `BlocklistAIHistoryModel::selected_conversation_id(owner_id)`. Entering or switching Agent View should set selected conversation in history. Exiting Agent View should clear selected conversation only when the exit semantics mean “no conversation is selected for the next prompt”; in-place switches should not briefly clear and re-set selection.
-`TerminalModel`/`BlockList` still needs the selected conversation while holding the terminal lock so it can compute block and rich-content visibility without reaching into global application state. Keep a derived `AgentViewState` render snapshot on the terminal model for that purpose. The snapshot is written by `AgentViewController` from the history-selected conversation when entering Agent View and cleared on exit; it is not a third semantic conversation identity or a source of truth.
-`BlocklistAIContextModel::selected_conversation_id(ctx)` should read the history selected conversation for its owner, not `AgentViewController::agent_view_state()`. Existing legacy non-Agent-View branches only need to keep compiling; they should not drive the design.
-### TUI/headless prompt smoke path
-Extend the existing `warp_tui` path with a smoke mode that can be run from cargo. The smoke path should reuse the productionized local terminal manager construction path. It should call `local_tty::TerminalManager::<TuiConversationSurface>::create_model(...)` with a small TUI/headless surface instead of constructing `TerminalModel`, `Sessions`, `ModelEventDispatcher`, PTY channels, or controllers directly.
-`TuiConversationSurface` should be a minimal non-GUI `TerminalSurface` implementation for this phase. It should exist to give `TerminalManager<S>` a concrete surface owner, receive lifecycle callbacks, and expose the manager-created terminal/session/AI model handles needed by the smoke path. It should not reuse `TerminalView`, because `TerminalView` brings GUI rendering, pane, input editor, rich-content, session-sharing UI, and Agent View UI responsibilities that this phase is explicitly avoiding.
-The generic manager call should own the same construction order as the GUI path:
-1. `TerminalManager::<TuiConversationSurface>::create_model(...)` creates the terminal channels, `Sessions`, `ModelEventDispatcher`, `TerminalModel`, `PtyController`, and PTY lifecycle state.
-2. Its surface setup callback receives `TerminalSurfaceInit`, including the manager-created `TerminalModel`, `Sessions`, `ModelEventDispatcher`, wakeup receiver, inactive PTY reads receiver, colors, and initial size.
-3. The callback creates the minimal `TuiConversationSurface` and constructs the TUI/headless AI model/controller cluster from those manager-created handles.
-4. The manager wires the surface to the `PtyController`. `TuiConversationSurface::should_start_pty()` returns `false`, so the manager retains the manager-created terminal/session/controller core but intentionally skips shell/PTY startup for this conversation-only smoke path.
-This keeps terminal-session ownership in `TerminalManager<S>` and keeps the TUI conversation work focused on prompt submission and stream observation. A later TUI transcript-rendering branch can either extend this surface or add a real TUI view that observes the same manager-owned model; this phase should not duplicate terminal model/session construction.
-The exact CLI can be adjusted during implementation, but the intended shape is:
-- `cargo run -p warp_tui -- --prompt "say hi"`
-- `cargo run -p warp_tui -- --conversation-id <local-ai-conversation-id> --prompt "follow up"`
-The smoke mode should:
-1. boot the real headless Warp app through `warp::run_tui`
-2. construct a manager-owned local terminal session through `TerminalManager::<TuiConversationSurface>::create_model(...)`
-3. construct the same AI model/controller cluster shape as GUI from the `TerminalSurfaceInit` handles, without requiring `AgentViewController`
-4. submit a new prompt through `BlocklistAIController::send_user_query_in_new_conversation`
-5. observe `BlocklistAIHistoryModel` events for this `AgentConversationOwnerId`
-6. print streamed text/status and the local client `AIConversationId`
-7. accept that local ID for `send_user_query_in_conversation` in a follow-up smoke run
-This is a testing harness, not a durable external resume API. It should not support server conversation tokens in this phase.
-Tool calls, shell command execution, action approval, and autoexecute are out of scope. If the response requests unsupported client action handling, the smoke path should fail or report unsupported clearly rather than waiting for a TUI UI that does not exist.
-### Streaming event observation
-The TUI/headless observer should subscribe to `BlocklistAIHistoryModel` and filter by `AgentConversationOwnerId`. It should not talk directly to the server stream. It should derive output from the same conversation/exchange state the GUI renders today.
-The first implementation can emit simple lines or JSONL from the smoke path. If JSONL is chosen during implementation, keep events minimal: conversation started, text updated, status changed, finished, and error. This output format is for validation only and should not become a product API without a separate decision.
+Use WarpUI `EntityId` as the opaque routing key for a conversation owner. History and conversation models remain owner-agnostic: they use the ID to scope state and events, but do not distinguish or branch on owner kinds.
+Generalize owner-shaped history fields, methods, and events from terminal-view terminology to owner terminology:
+- live and cleared conversation IDs are keyed by owner
+- active/progress conversation is keyed by owner
+- owner-scoped history methods and events accept or emit `EntityId` values named `owner_id`
+GUI-local APIs and variables keep terminal-view terminology where they still represent GUI `TerminalView` IDs. The owner-oriented history boundary does not introduce a separate owner type or expose GUI-specific naming.
+### Per-surface selected conversation
+Preserve one selected-conversation implementation per surface:
+- GUI surfaces use `AgentViewController::agent_view_state()` exactly as before.
+- Controller-less TUI surfaces use `BlocklistAIContextModel::PendingQueryState`.
+`BlocklistAIContextModel::selected_conversation_id(ctx)` reads the Agent View controller when present and otherwise reads its pending query state. A controller-less new-conversation operation creates an owner-scoped conversation and immediately records it as `PendingQueryState::Existing`, allowing an empty conversation to remain selected before the first prompt.
+Generic request, response-stream, queued-prompt, passive, and background paths update history active/progress state but do not change selection. Surface actions are the only selection authority.
+Controller-less context models clear invalid selections when owner-scoped history events remove, delete, transfer, or clear the selected conversation. A split selects the new conversation only when the split source was selected.
+### TUI conversation model
+Add `TuiConversationModel` as the reusable per-surface coordination boundary for a future interactive TUI. It owns:
+- the surface's owner `EntityId`
+- its controller-less `BlocklistAIContextModel`
+- its production `BlocklistAIController`
+- subscriptions to owner-filtered `BlocklistAIHistoryModel` events
+It exposes clear homes for:
+- reading and changing the selected conversation
+- creating and selecting a new conversation
+- restoring/selecting an existing conversation
+- sending a prompt to the selected conversation
+- observing conversation start, stream updates, status changes, selection changes, and errors
+`TuiConversationModel` owns no transcript widgets. A future TUI workspace/root model can own many TUI surfaces and coordinate focus and orchestration navigation across them. Global orchestration topology remains in history; selection remains local to each surface.
+`TuiConversationSurface` remains the no-PTY `TerminalSurface` required by the productionized terminal-manager construction path. For the current cargo-runnable smoke flow, it adapts `TuiConversationModel` events to stdout and process termination. Replacing that adapter with interactive widgets must not require replacing the conversation model.
+### Manager-owned terminal core
+Construct each TUI surface through `local_tty::TerminalManager<TuiConversationSurface>::create_model(...)`.
+1. The manager creates terminal channels, `Sessions`, `ModelEventDispatcher`, `TerminalModel`, `PtyController`, and lifecycle state.
+2. The surface callback receives `TerminalSurfaceInit` and constructs the controller-less AI cluster.
+3. The surface creates `TuiConversationModel` from the context/controller handles.
+4. `TuiConversationSurface::should_start_pty()` returns `false`, preserving the manager-owned terminal/session core while skipping shell startup.
+### Channel-specific TUI binaries and smoke CLI
+The `warp_tui` package mirrors GUI channel binaries. Every channel-specific binary shares argument parsing for:
+- `--prompt <text>`
+- `--conversation-id <local-ai-conversation-id>`
+Arguments are forwarded to headless app initialization. Bare `cargo run -p warp_tui` uses the OSS/production channel; `./script/run-tui -- --prompt ...` selects the internal local channel when its channel config is available.
+The smoke adapter prints the local conversation ID, streamed plain-text snapshots, and final status. Unsupported tool/actions fail clearly instead of waiting for UI that does not exist.
 ## End-to-end flow
 ```mermaid
 flowchart TD
-  Prompt["warp_tui smoke prompt<br/>--prompt text"] --> Boot["run_tui boots headless app<br/>Auth and singletons available"]
-  Boot --> Manager["TerminalManager<TuiConversationSurface><br/>create_model"]
-  Manager --> TerminalCore["Manager creates terminal core<br/>TerminalModel, Sessions,<br/>ModelEventDispatcher, PtyController<br/>PTY startup skipped"]
-  TerminalCore --> Surface["Surface setup callback<br/>creates minimal non-GUI surface"]
-  Surface --> Owner["Create AgentConversationOwnerId<br/>for TUI/headless owner"]
-  Owner --> Cluster["Construct AI cluster from manager handles<br/>ActiveSession, ContextModel,<br/>InputModel, ActionModel, Controller"]
-  Cluster --> Select{"conversation id<br/>provided?"}
-  Select -->|no| New["BlocklistAIController<br/>send_user_query_in_new_conversation"]
-  Select -->|yes| Existing["BlocklistAIController<br/>send_user_query_in_conversation"]
-  New --> HistoryStart["BlocklistAIHistoryModel<br/>start conversation, set selected owner"]
-  Existing --> HistoryStart
-  HistoryStart --> Request["ResponseStream created<br/>request sent through existing API path"]
-  Request --> StreamEvents["ResponseStreamEvent<br/>Init, ClientActions, Finished"]
-  StreamEvents --> Controller["BlocklistAIController<br/>handle_response_stream_event"]
-  Controller --> HistoryUpdates["BlocklistAIHistoryModel<br/>append/update exchange and status"]
-  HistoryUpdates --> Observer["TUI/headless observer<br/>filters owner events"]
-  Observer --> Stdout["Print streamed response<br/>and local AIConversationId"]
-  Stdout --> FollowUp["Follow-up smoke command<br/>uses local AIConversationId"]
+  Prompt["TUI prompt or future composer action"] --> Manager["TerminalManager<TuiConversationSurface><br/>creates manager-owned terminal core"]
+  Manager --> Surface["TuiConversationSurface<br/>no PTY"]
+  Surface --> Cluster["Controller-less AI cluster<br/>ContextModel, InputModel,<br/>ActionModel, Controller"]
+  Cluster --> Model["TuiConversationModel<br/>per-surface coordination"]
+  Model --> Select{"selected conversation?"}
+  Select -->|none| New["Create owner-scoped conversation<br/>select in ContextModel"]
+  Select -->|existing/local ID| Restore["Restore if needed<br/>select in ContextModel"]
+  New --> Send["BlocklistAIController<br/>send in selected conversation"]
+  Restore --> Send
+  Send --> Stream["ResponseStream events"]
+  Stream --> History["BlocklistAIHistoryModel<br/>conversation + active/progress updates"]
+  History --> Model
+  Model --> Presentation["Smoke stdout now<br/>interactive TUI widgets later"]
 ```
 ## Testing and validation
-Add direct `BlocklistAIHistoryModel` unit tests for owner and selection invariants:
-- owner maps store and return conversations by `AgentConversationOwnerId`
-- selected conversation can be set, read, and cleared
-- selecting a non-live conversation no-ops and emits no change event
-- clearing/removing conversations clears selected conversation
-- selected and active conversation can differ for one owner
-Add controller-level tests using `ResponseStream::new_for_test` and `BlocklistAIController::register_mock_stream_for_test`:
-- mock stream events flow through `BlocklistAIController` into `BlocklistAIHistoryModel`
-- the observer sees appended exchange, streaming update, and finished status through history events
-- a follow-up prompt targets the selected/local conversation ID rather than creating a new conversation
-Add a manual smoke validation:
-- run `cargo run -p warp_tui -- --prompt "say hi"` and confirm streamed output plus local `AIConversationId`
-- run `cargo run -p warp_tui -- --conversation-id <id> --prompt "what did I ask you to do?"` and confirm the response continues the same local conversation
-- use prompts that do not require tools or shell execution in this phase
-Validation performed while implementing the first vertical slice:
-- `cargo run -p warp_tui -- --prompt "Reply with exactly: hello from tui"` emitted a local `AIConversationId`, streamed `hello` then `hello from tui`, and finished successfully
-- running the built `warp-tui` binary with that conversation ID and asking for the first response returned `hello from tui`, proving cross-process local-ID restoration and follow-up continuity
-Run formatting and compile checks:
+Automated coverage should verify:
+- owner-scoped history maps and active/progress state
+- controller-less context selection is independent from GUI Agent View state
+- creating a controller-less conversation selects it and scopes it to the correct owner
+- selecting a new conversation, restoring an existing conversation, and sending a follow-up retain the same local conversation ID
+- mock response-stream events flow through `BlocklistAIController` into owner-filtered history/model events
+- every channel-specific TUI binary forwards smoke CLI arguments
+Manual validation:
+- `cargo run -p warp_tui -- --prompt "Reply with exactly: hello from tui"` emits a local ID, streamed text, and `status=Success`
+- a separate process using that ID with `--conversation-id` restores the conversation and recalls the previous response
+- prompts requiring tools terminate with an unsupported-action error rather than hanging
+Run:
 - `./script/format`
-- `cargo check -p warp`
-- `cargo check -p warp_tui`
-- focused `cargo nextest run -p warp` filters for history model, controller stream, and any TUI smoke helper tests
-## Parallelization
-Do not parallelize the core implementation across agents. The main edits touch the same ownership layer (`BlocklistAIHistoryModel`), `AgentViewController`, `BlocklistAIContextModel`, and `BlocklistAIController` constructor/call sites, so parallel coding would create overlapping diffs and hard-to-review conflicts.
-Validation can be parallelized after the code compiles. One agent can run focused history/controller tests while another runs the cargo smoke command in the worktree, but code integration should remain single-threaded.
+- `cargo check -p warp -p warp_tui`
+- `cargo check -p warp --tests`
+- `cargo check -p warp --features integration_tests --tests`
+- `cargo clippy -p warp -p warp_tui --all-targets -- -D warnings`
+- focused nextest filters for owner/history, context selection, TUI model, and controller response-stream tests
+## Out of scope
+- Transcript/rich-content TUI widgets
+- TUI workspace/root orchestration UI
+- TUI tool/action execution, approval UI, shell execution, or autoexecute policy
+- A shared cross-surface `AgentConversationSession`
+- A raw server-stream client that bypasses `BlocklistAIController`
+- Making the smoke stdout format a stable external API
 ## Risks and mitigations
-- **Conversation identity churn breaks GUI behavior.** Keep GUI boundary conversion explicit: `TerminalView::id()` becomes `AgentConversationOwnerId` only when entering history/controller APIs.
-- **Selected and active conversation semantics blur.** Add comments on both fields and APIs. Active is current/recent progress target; selected is next prompt target and Agent View display target.
-- **AgentViewController refactor is too broad.** Limit the controller change to removing canonical conversation ownership. Preserve display mode, origin, exchange-count, and confirmation responsibilities.
-- **TUI smoke path hangs on actions.** Treat tool/action execution as unsupported in this phase and report clearly instead of waiting for an approval UI.
-- **Manual smoke command depends on auth/server state.** Keep no-network automated tests at the history/controller layers and use the cargo smoke command only as manual validation for real streaming.
-## Follow-ups
-- Add TUI transcript/rich-content rendering using the history stream once the prompt/streaming APIs are proven.
-- Add TUI/headless action/tool handling as a separate branch with an explicit policy for unsupported, approved, or autoexecuted actions.
-- Decide whether the smoke output should become a stable JSONL/debug interface or remain an internal validation path.
-- Consider cleanup of legacy non-Agent-View pending-query state once Agent View-only behavior is fully enforced.
+- **GUI behavior regresses from unnecessary abstraction changes.** Preserve existing `AgentViewController`, `AgentViewState`, and GUI-local terminal-view accessors; generalize only history ownership boundaries.
+- **Owner identity leaks surface-specific behavior into shared models.** Treat owner `EntityId`s as opaque routing keys; keep surface-specific navigation and lifecycle behavior outside history and conversation models.
+- **Active/progress and selected/next-prompt semantics blur.** Keep active state history-owned and selection surface-owned; never select from generic request or stream code.
+- **A controller-less selected conversation becomes invalid.** Reconcile selection from owner-scoped removal, deletion, transfer, clear, and split events.
+- **A future multi-session TUI conflates focus and selection.** Give each TUI surface its own owner and context selection; let a later root model own focus and topology navigation.
+- **Smoke-only behavior leaks into production models.** Keep stdout, termination, and unsupported-action presentation policy on `TuiConversationSurface`; keep reusable conversation operations and events on `TuiConversationModel`.

@@ -118,7 +118,7 @@ impl CreateDocumentsExecutor {
                 let terminal_view_id = self.terminal_view_id;
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                     if let Some(conversation) = history.conversation_mut(&conversation_id) {
-                        conversation.add_artifact(artifact, terminal_view_id.into(), ctx);
+                        conversation.add_artifact(artifact, terminal_view_id, ctx);
                     }
                 });
 

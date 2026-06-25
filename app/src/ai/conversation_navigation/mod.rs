@@ -185,9 +185,7 @@ impl ConversationNavigationData {
 
                     // Skip conversation transcript viewers, as they are stored elsewhere
                     // and should not be presented as regular user conversations.
-                    if history_model
-                        .is_owner_conversation_transcript_viewer(terminal_view_id.into())
-                    {
+                    if history_model.is_owner_conversation_transcript_viewer(terminal_view_id) {
                         continue;
                     }
 
@@ -199,7 +197,7 @@ impl ConversationNavigationData {
 
                     // Get all continuable conversations for this terminal view
                     for conversation in
-                        history_model.all_live_conversations_for_owner(terminal_view_id.into())
+                        history_model.all_live_conversations_for_owner(terminal_view_id)
                     {
                         if !all_conversation_ids.contains(&conversation.id()) {
                             if conversation.should_exclude_from_navigation() {
@@ -264,7 +262,7 @@ impl ConversationNavigationData {
                     return;
                 }
 
-                if !open_terminal_views.contains(&terminal_id.entity_id())
+                if !open_terminal_views.contains(&terminal_id)
                     && !all_conversation_ids.contains(&conversation.id())
                 {
                     all_conversation_ids.insert(conversation.id());

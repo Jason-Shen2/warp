@@ -567,7 +567,7 @@ fn terminal_cloud_status_transition_drains_once_through_cloud_followup_input_eve
                 history_model.clone(),
                 &BlocklistAIHistoryEvent::UpdatedConversationStatus {
                     conversation_id,
-                    owner_id: terminal_view_id.into(),
+                    owner_id: terminal_view_id,
                     update: ConversationStatusUpdate::Changed {
                         prev_status: ConversationStatus::InProgress,
                     },
@@ -579,7 +579,7 @@ fn terminal_cloud_status_transition_drains_once_through_cloud_followup_input_eve
                 history_model,
                 &BlocklistAIHistoryEvent::UpdatedConversationStatus {
                     conversation_id,
-                    owner_id: terminal_view_id.into(),
+                    owner_id: terminal_view_id,
                     update: ConversationStatusUpdate::Changed {
                         prev_status: ConversationStatus::Success,
                     },
@@ -853,14 +853,8 @@ fn complete_drain_keeps_command_row_when_dispatch_fails_with_draft() {
         let terminal_view_id = terminal.read(&app, |view, _| view.view_id);
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(
-                    terminal_view_id.into(),
-                    false,
-                    false,
-                    false,
-                    ctx,
-                );
-                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                history.set_active_conversation_id(id, terminal_view_id, ctx);
                 id
             });
         let query_id = QueuedQueryModel::handle(&app).update(&mut app, |model, ctx| {
@@ -927,14 +921,8 @@ fn commit_edit_saves_current_editor_text_for_lrc_row() {
         let terminal_view_id = terminal.read(&app, |view, _| view.view_id);
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(
-                    terminal_view_id.into(),
-                    false,
-                    false,
-                    false,
-                    ctx,
-                );
-                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                history.set_active_conversation_id(id, terminal_view_id, ctx);
                 id
             });
         let query_id = QueuedQueryModel::handle(&app).update(&mut app, |model, ctx| {
@@ -982,14 +970,8 @@ fn lrc_finish_commits_edited_lrc_row_before_sending() {
         let terminal_view_id = terminal.read(&app, |view, _| view.view_id);
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(
-                    terminal_view_id.into(),
-                    false,
-                    false,
-                    false,
-                    ctx,
-                );
-                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                history.set_active_conversation_id(id, terminal_view_id, ctx);
                 id
             });
         let query_id = QueuedQueryModel::handle(&app).update(&mut app, |model, ctx| {
@@ -1438,8 +1420,8 @@ fn build_panel_with_active_conversation(
     let terminal = add_window_with_terminal(app, None);
     let terminal_view_id = terminal.read(app, |view, _| view.view_id);
     let conversation_id = BlocklistAIHistoryModel::handle(app).update(app, |history, ctx| {
-        let id = history.start_new_conversation(terminal_view_id.into(), false, false, false, ctx);
-        history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+        let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+        history.set_active_conversation_id(id, terminal_view_id, ctx);
         id
     });
     let input = terminal.read(app, |view, _| view.input.clone());
@@ -1478,14 +1460,8 @@ fn redetermine_terminal_focus_preserves_focused_queued_prompt_editor() {
         let terminal_view_id = terminal.read(&app, |view, _| view.view_id);
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(
-                    terminal_view_id.into(),
-                    false,
-                    false,
-                    false,
-                    ctx,
-                );
-                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                history.set_active_conversation_id(id, terminal_view_id, ctx);
                 id
             });
         let input = terminal.read(&app, |view, _| view.input.clone());

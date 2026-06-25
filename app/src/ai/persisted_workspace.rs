@@ -265,7 +265,7 @@ impl PersistedWorkspace {
                         #[cfg(feature = "local_fs")]
                         me.clean_up_deleted_indices(ctx);
 
-                        me.trigger_incremental_sync_for_conversation(owner_id.entity_id(), ctx);
+                        me.trigger_incremental_sync_for_conversation(*owner_id, ctx);
                     }
                 },
             );

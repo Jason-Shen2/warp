@@ -4334,7 +4334,7 @@ impl EditorView {
         let is_agent_responding = terminal_view
             .as_ref()
             .and_then(|terminal_view| {
-                BlocklistAIHistoryModel::as_ref(ctx).active_conversation(terminal_view.id().into())
+                BlocklistAIHistoryModel::as_ref(ctx).active_conversation(terminal_view.id())
             })
             .is_some_and(|conversation| {
                 conversation.status().is_in_progress() && conversation.exchange_count() > 0

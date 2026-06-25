@@ -1019,8 +1019,8 @@ impl<'a> TabComponent<'a> {
         let terminal_view = tab.pane_group.as_ref(app).focused_session_view(app)?;
         let terminal_view_ref = terminal_view.as_ref(app);
         let is_long_running = terminal_view_ref.is_long_running();
-        let conversation = BlocklistAIHistoryModel::as_ref(app)
-            .active_conversation(terminal_view_ref.id().into())?;
+        let conversation =
+            BlocklistAIHistoryModel::as_ref(app).active_conversation(terminal_view_ref.id())?;
 
         // Show in-progress indicator when a shell command is running in the AgentView.
         // This matches vertical-tab behavior.
@@ -1100,7 +1100,7 @@ impl<'a> TabComponent<'a> {
             .focused_session_view(ctx)
             .map(|view| view.id())?;
         let ai_history_model = BlocklistAIHistoryModel::as_ref(ctx);
-        let conversation = ai_history_model.active_conversation(terminal_view_id.into())?;
+        let conversation = ai_history_model.active_conversation(terminal_view_id)?;
 
         // Don't show tooltip for passive conversations
         if conversation.is_entirely_passive() {

@@ -84,7 +84,7 @@ impl View for InlineAgentViewHeader {
         let appearance = Appearance::as_ref(app);
 
         let history_model = BlocklistAIHistoryModel::as_ref(app);
-        let active_conversation = history_model.active_conversation(self.terminal_view_id.into());
+        let active_conversation = history_model.active_conversation(self.terminal_view_id);
         let conversation_status = active_conversation.map(|conv| conv.status().clone());
         // Use active conversation's latest_exchange to include subtask exchanges (e.g., CLI subagent)
         let is_streaming = active_conversation

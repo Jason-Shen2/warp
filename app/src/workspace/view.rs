@@ -3596,12 +3596,9 @@ impl Workspace {
             );
 
             if is_relevant_update
-                && event
-                    .owner_id()
-                    .map(|id| id.entity_id())
-                    .is_some_and(|event_id| {
-                        focused_terminal_view_id.is_some_and(|id| id == event_id)
-                    })
+                && event.owner_id().map(|id| id).is_some_and(|event_id| {
+                    focused_terminal_view_id.is_some_and(|id| id == event_id)
+                })
             {
                 self.update_transcript_details_panel_data(ctx);
                 ctx.notify();
@@ -3651,7 +3648,7 @@ impl Workspace {
                 | BlocklistAIHistoryEvent::UpdatedConversationMetadata { .. }
         ) && event
             .owner_id()
-            .map(|id| id.entity_id())
+            .map(|id| id)
             .is_some_and(|terminal_view_id| {
                 self.workspace_contains_terminal_view(terminal_view_id, ctx)
             })
@@ -7769,7 +7766,7 @@ impl Workspace {
             // Don't show onboarding block while agent is actively streaming
             let is_agent_in_progress = BlocklistAIHistoryModel::handle(ctx)
                 .as_ref(ctx)
-                .active_conversation(terminal_view_id.into())
+                .active_conversation(terminal_view_id)
                 .is_some_and(|conversation| conversation.status().is_in_progress());
 
             if is_agent_in_progress {
@@ -9203,9 +9200,10 @@ impl Workspace {
             ctx,
         );
 
-        let active_conversation_id = panel_context.terminal_view.upgrade(ctx).and_then(|tv| {
-            BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(tv.id().into())
-        });
+        let active_conversation_id = panel_context
+            .terminal_view
+            .upgrade(ctx)
+            .and_then(|tv| BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(tv.id()));
 
         if let Some(conversation_id) = active_conversation_id {
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, _| {
@@ -12826,7 +12824,7 @@ impl Workspace {
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                     history_model.set_active_conversation_id(
                         conversation_id,
-                        terminal_view_id.into(),
+                        terminal_view_id,
                         ctx,
                     );
                 });
@@ -12904,7 +12902,7 @@ impl Workspace {
             let history_model = BlocklistAIHistoryModel::as_ref(ctx);
             history_model.conversation(&conversation_id).is_some()
                 && history_model
-                    .all_live_conversations_for_owner(terminal_view_id.into())
+                    .all_live_conversations_for_owner(terminal_view_id)
                     .any(|conversation| conversation.id() == conversation_id)
         };
         if already_exists_in_active_pane {
@@ -13273,7 +13271,7 @@ impl Workspace {
             .all_live_conversations()
             .into_iter()
             .find(|(_, convo)| convo.id() == conversation_id)
-            .map(|(owner_id, _)| owner_id.entity_id());
+            .map(|(owner_id, _)| owner_id);
 
         // An empty prompt should not be provided as a query for the new forked conversation.
         let initial_prompt = initial_prompt.and_then(|prompt| {
@@ -15314,7 +15312,7 @@ impl Workspace {
             match intent.expected_conversation_id() {
                 Some(expected_conversation_id) => {
                     let Some(active_conversation) =
-                        history_model.active_conversation(terminal_view_id.into())
+                        history_model.active_conversation(terminal_view_id)
                     else {
                         Self::record_automatic_handoff_failed(intent, ctx);
                         return;
@@ -15327,9 +15325,7 @@ impl Workspace {
 
                     Some(active_conversation.clone())
                 }
-                None => history_model
-                    .active_conversation(terminal_view_id.into())
-                    .cloned(),
+                None => history_model.active_conversation(terminal_view_id).cloned(),
             }
         };
 
@@ -15996,7 +15992,7 @@ impl Workspace {
             pane_group::Event::ToggleCodeReviewPane(arg) => {
                 self.toggle_right_panel(&pane_group, ctx);
                 let active_conversation_id = arg.terminal_view.upgrade(ctx).and_then(|tv| {
-                    BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(tv.id().into())
+                    BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(tv.id())
                 });
                 if let Some(conversation_id) = active_conversation_id {
                     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, _| {
@@ -24993,7 +24989,7 @@ impl TypedActionView for Workspace {
                                 let conversation_id =
                                     terminal.active_conversation_id(ctx).or_else(|| {
                                         BlocklistAIHistoryModel::as_ref(ctx)
-                                            .active_conversation(terminal.id().into())
+                                            .active_conversation(terminal.id())
                                             .map(|conv| conv.id())
                                     });
                                 fork_button_action(conversation_id, is_cloud_agent_context, ctx)

@@ -279,7 +279,7 @@ impl SlashCommandDataSource {
             true
         } else {
             BlocklistAIHistoryModel::as_ref(ctx)
-                .active_conversation(self.terminal_view_id.into())
+                .active_conversation(self.terminal_view_id)
                 .is_some()
         };
         if has_active_conversation {
@@ -432,7 +432,7 @@ impl SlashCommandDataSource {
         {
             Some(id) => id,
             None => match BlocklistAIHistoryModel::as_ref(ctx)
-                .active_conversation(self.terminal_view_id.into())
+                .active_conversation(self.terminal_view_id)
             {
                 Some(conv) => conv.id(),
                 None => return false,

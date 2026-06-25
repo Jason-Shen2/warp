@@ -574,14 +574,8 @@ fn command_execution_finished_defers_queued_command_advance_until_block_completi
         // Start a conversation and arm an in-flight queued command for it.
         let command_conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(
-                    terminal_view_id.into(),
-                    false,
-                    false,
-                    false,
-                    ctx,
-                );
-                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                history.set_active_conversation_id(id, terminal_view_id, ctx);
                 id
             });
         QueuedQueryModel::handle(&app).update(&mut app, |model, _| {
@@ -592,14 +586,8 @@ fn command_execution_finished_defers_queued_command_advance_until_block_completi
         // must still clear the queue state for the conversation that dispatched the command.
         let active_conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(
-                    terminal_view_id.into(),
-                    false,
-                    false,
-                    false,
-                    ctx,
-                );
-                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                history.set_active_conversation_id(id, terminal_view_id, ctx);
                 id
             });
         QueuedQueryModel::handle(&app).read(&app, |model, _| {
@@ -666,14 +654,8 @@ fn command_execution_started_preserves_draft_for_queued_command() {
         let terminal_view_id = terminal_view.read(&app, |view, _| view.id());
         let conversation_id =
             BlocklistAIHistoryModel::handle(&app).update(&mut app, |history, ctx| {
-                let id = history.start_new_conversation(
-                    terminal_view_id.into(),
-                    false,
-                    false,
-                    false,
-                    ctx,
-                );
-                history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+                let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+                history.set_active_conversation_id(id, terminal_view_id, ctx);
                 id
             });
         QueuedQueryModel::handle(&app).update(&mut app, |model, _| {

@@ -73,7 +73,7 @@ fn toggle_pin_persists_pinned_state_to_sqlite_event() {
         let conversation_id = conversation.id();
         let terminal_view_id = warpui::EntityId::new();
         history_model.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
         });
 
         // Pin model must be registered after the history model because it

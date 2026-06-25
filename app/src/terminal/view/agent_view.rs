@@ -133,7 +133,7 @@ impl TerminalView {
             let in_memory_conversation = history_model_ref.conversation(&conversation_id).cloned();
             let is_live = in_memory_conversation.is_some()
                 && history_model_ref
-                    .all_live_conversations_for_owner(self.view_id.into())
+                    .all_live_conversations_for_owner(self.view_id)
                     .any(|conversation| conversation.id() == conversation_id);
             (in_memory_conversation, is_live)
         };

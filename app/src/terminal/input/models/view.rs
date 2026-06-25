@@ -186,7 +186,7 @@ impl InlineModelSelectorView {
                     let history = BlocklistAIHistoryModel::as_ref(app);
 
                     let main_agent_in_progress = history
-                        .active_conversation(terminal_view_id.into())
+                        .active_conversation(terminal_view_id)
                         .is_some_and(|c| !c.is_empty() && c.status().is_in_progress());
                     let is_cli_agent_in_control_or_tagged_in =
                         cli_ctrl.as_ref(app).is_agent_in_control_or_tagged_in();

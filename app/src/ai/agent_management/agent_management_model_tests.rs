@@ -60,7 +60,7 @@ fn artifact_event_accumulates_into_pending() {
 
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id,
                 artifact: make_pr_artifact("https://github.com/org/repo/pull/42", "feature-branch"),
             });
@@ -85,14 +85,14 @@ fn multiple_artifacts_accumulated_across_turns() {
 
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id,
                 artifact: make_plan_artifact("doc-1", "My Plan"),
             });
         });
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id,
                 artifact: make_pr_artifact("https://github.com/org/repo/pull/1", "main"),
             });
@@ -158,7 +158,7 @@ fn flush_drains_pending_artifacts() {
 
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id,
                 artifact: make_pr_artifact("https://github.com/org/repo/pull/1", "branch-1"),
             });
@@ -202,7 +202,7 @@ fn deletion_cleans_up_pending_artifacts() {
 
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id,
                 artifact: make_pr_artifact("https://github.com/org/repo/pull/1", "branch-1"),
             });
@@ -210,7 +210,7 @@ fn deletion_cleans_up_pending_artifacts() {
 
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::DeletedConversation {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id,
                 conversation_title: None,
                 run_id: None,
@@ -235,14 +235,14 @@ fn separate_conversations_have_independent_pending_artifacts() {
 
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id: conv_a,
                 artifact: make_pr_artifact("https://github.com/org/repo/pull/1", "branch-a"),
             });
         });
         history.update(&mut app, |_: &mut BlocklistAIHistoryModel, ctx| {
             ctx.emit(BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-                owner_id: terminal_view_id.into(),
+                owner_id: terminal_view_id,
                 conversation_id: conv_b,
                 artifact: make_plan_artifact("doc-b", "Plan B"),
             });
@@ -347,7 +347,7 @@ fn waiting_for_events_clears_stale_notification_and_adds_none() {
         let conversation_id = conversation.id();
         let terminal_view_id = EntityId::new();
         history.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
         });
 
         seed_stale_notification(&notifications, &mut app, conversation_id, terminal_view_id);
@@ -365,11 +365,7 @@ fn waiting_for_events_clears_stale_notification_and_adds_none() {
             let conv = model
                 .conversation_mut(&conversation_id)
                 .expect("conversation was just restored");
-            conv.update_status(
-                ConversationStatus::WaitingForEvents,
-                terminal_view_id.into(),
-                ctx,
-            );
+            conv.update_status(ConversationStatus::WaitingForEvents, terminal_view_id, ctx);
         });
 
         notifications.read(&app, |model, _| {
@@ -395,7 +391,7 @@ fn in_progress_resume_clears_stale_notification_and_adds_none() {
         let conversation_id = conversation.id();
         let terminal_view_id = EntityId::new();
         history.update(&mut app, |model, ctx| {
-            model.restore_conversations(terminal_view_id.into(), vec![conversation], ctx);
+            model.restore_conversations(terminal_view_id, vec![conversation], ctx);
         });
 
         // First move the conversation into WaitingForEvents, then back into
@@ -405,11 +401,7 @@ fn in_progress_resume_clears_stale_notification_and_adds_none() {
             let conv = model
                 .conversation_mut(&conversation_id)
                 .expect("conversation was just restored");
-            conv.update_status(
-                ConversationStatus::WaitingForEvents,
-                terminal_view_id.into(),
-                ctx,
-            );
+            conv.update_status(ConversationStatus::WaitingForEvents, terminal_view_id, ctx);
         });
 
         seed_stale_notification(&notifications, &mut app, conversation_id, terminal_view_id);
@@ -427,7 +419,7 @@ fn in_progress_resume_clears_stale_notification_and_adds_none() {
             let conv = model
                 .conversation_mut(&conversation_id)
                 .expect("conversation still exists");
-            conv.update_status(ConversationStatus::InProgress, terminal_view_id.into(), ctx);
+            conv.update_status(ConversationStatus::InProgress, terminal_view_id, ctx);
         });
 
         notifications.read(&app, |model, _| {

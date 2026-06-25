@@ -469,13 +469,9 @@ impl TerminalView {
 
         // Store conversations in the history model (with correct cancellation statuses)
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-            history_model.restore_conversations(self.view_id.into(), conversations, ctx);
+            history_model.restore_conversations(self.view_id, conversations, ctx);
             if let Some(active_conversation_id) = active_conversation_id {
-                history_model.set_active_conversation_id(
-                    active_conversation_id,
-                    self.view_id.into(),
-                    ctx,
-                );
+                history_model.set_active_conversation_id(active_conversation_id, self.view_id, ctx);
             }
         });
 
@@ -830,7 +826,7 @@ impl TerminalView {
     ) {
         // Persist newly created AI blocks for this forked conversation.
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-            history_model.on_forked_conversation(conversation_id, self.view_id.into(), ctx);
+            history_model.on_forked_conversation(conversation_id, self.view_id, ctx);
         });
 
         let model = self.model.lock();

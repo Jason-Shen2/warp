@@ -7,17 +7,17 @@ use pathfinder_geometry::vector::Vector2F;
 use warpui::elements::Empty;
 use warpui::platform::{TerminationMode, WindowStyle};
 use warpui::{
-    AddWindowOptions, AppContext, Element, Entity, ModelContext, ModelHandle, SingletonEntity,
-    TypedActionView, View, ViewContext, ViewHandle,
+    AddWindowOptions, AppContext, Element, Entity, EntityId, ModelContext, ModelHandle,
+    SingletonEntity, TypedActionView, View, ViewContext, ViewHandle,
 };
 
 use crate::ai::agent::conversation::{AIConversationId, ConversationStatus};
 use crate::ai::agent::AIAgentTextSection;
 use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
 use crate::ai::blocklist::{
-    AgentConversationOwnerId, BlocklistAIActionModel, BlocklistAIContextEvent,
-    BlocklistAIContextModel, BlocklistAIController, BlocklistAIHistoryEvent,
-    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationStatusUpdate,
+    BlocklistAIActionModel, BlocklistAIContextEvent, BlocklistAIContextModel,
+    BlocklistAIController, BlocklistAIHistoryEvent, BlocklistAIHistoryModel, BlocklistAIInputModel,
+    ConversationStatusUpdate,
 };
 use crate::ai::get_relevant_files::controller::GetRelevantFilesController;
 use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
@@ -86,7 +86,7 @@ enum TuiConversationModelEvent {
 /// conversation state, conversation restore/create operations, prompt
 /// submission, and history-backed stream events for one TUI surface.
 struct TuiConversationModel {
-    owner_id: AgentConversationOwnerId,
+    owner_id: EntityId,
     context_model: ModelHandle<BlocklistAIContextModel>,
     ai_controller: ModelHandle<BlocklistAIController>,
 }
@@ -94,7 +94,7 @@ struct TuiConversationModel {
 impl TuiConversationModel {
     /// Creates a TUI conversation model around the shared production AI models.
     fn new(
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         context_model: ModelHandle<BlocklistAIContextModel>,
         ai_controller: ModelHandle<BlocklistAIController>,
         ctx: &mut ModelContext<Self>,
@@ -307,7 +307,7 @@ impl TuiConversationSurface {
             model_events,
             ..
         } = surface_init;
-        let owner_id: AgentConversationOwnerId = ctx.view_id().into();
+        let owner_id: EntityId = ctx.view_id();
         let active_session =
             ctx.add_model(|ctx| ActiveSession::new(sessions.clone(), model_events.clone(), ctx));
         let context_model = ctx.add_model(|ctx| {
@@ -315,19 +315,13 @@ impl TuiConversationSurface {
                 sessions,
                 &model_events,
                 model.clone(),
-                owner_id.entity_id(),
+                owner_id,
                 None,
                 ctx,
             )
         });
         let input_model = ctx.add_model(|ctx| {
-            BlocklistAIInputModel::new(
-                model.clone(),
-                None,
-                context_model.clone(),
-                owner_id.entity_id(),
-                ctx,
-            )
+            BlocklistAIInputModel::new(model.clone(), None, context_model.clone(), owner_id, ctx)
         });
         let get_relevant_files_controller = ctx.add_model(GetRelevantFilesController::new);
         let action_model = ctx.add_model(|ctx| {
@@ -336,7 +330,7 @@ impl TuiConversationSurface {
                 active_session.clone(),
                 &model_events,
                 get_relevant_files_controller,
-                owner_id.entity_id(),
+                owner_id,
                 ctx,
             )
         });
@@ -348,7 +342,7 @@ impl TuiConversationSurface {
                 active_session,
                 None,
                 model,
-                owner_id.entity_id(),
+                owner_id,
                 ctx,
             )
         });

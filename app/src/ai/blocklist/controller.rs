@@ -540,7 +540,7 @@ impl BlocklistAIController {
                     };
                     history_model.update(ctx, |history_model, ctx| {
                         history_model.update_conversation_status(
-                            me.terminal_view_id.into(),
+                            me.terminal_view_id,
                             *conversation_id,
                             updated_conversation_status,
                             ctx,
@@ -682,8 +682,7 @@ impl BlocklistAIController {
             .unwrap_or_default();
 
         let ai_history_model = BlocklistAIHistoryModel::as_ref(ctx);
-        let active_conversation_id =
-            ai_history_model.active_conversation_id(self.terminal_view_id.into());
+        let active_conversation_id = ai_history_model.active_conversation_id(self.terminal_view_id);
         let cancellation_reason = CancellationReason::FollowUpSubmitted {
             is_for_same_conversation: active_conversation_id
                 .is_some_and(|id| id == conversation_id),
@@ -1010,7 +1009,7 @@ impl BlocklistAIController {
                 history_model.create_cli_subagent_task_for_conversation(
                     running_command.block_id.clone(),
                     conversation_id,
-                    self.terminal_view_id.into(),
+                    self.terminal_view_id,
                     ctx,
                 )
             }) {
@@ -1226,7 +1225,7 @@ impl BlocklistAIController {
                     history_model.create_cli_subagent_task_for_conversation(
                         running_command.block_id.clone(),
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     )
                 }) {
@@ -1530,7 +1529,7 @@ impl BlocklistAIController {
         }
 
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-            history.mark_active_conversation_id(conversation_id, self.terminal_view_id.into(), ctx);
+            history.mark_active_conversation_id(conversation_id, self.terminal_view_id, ctx);
         });
 
         if !FeatureFlag::AgentView.is_enabled() && trigger == FollowUpTrigger::Auto {
@@ -1633,7 +1632,7 @@ impl BlocklistAIController {
         ctx: &ModelContext<Self>,
     ) -> bool {
         let owns = BlocklistAIHistoryModel::as_ref(ctx)
-            .all_live_conversations_for_owner(self.terminal_view_id.into())
+            .all_live_conversations_for_owner(self.terminal_view_id)
             .any(|conversation| conversation.id() == conversation_id);
         let has_active_stream = self
             .in_flight_response_streams
@@ -1764,7 +1763,7 @@ impl BlocklistAIController {
                             ctx,
                             |history_model, ctx| {
                                 history_model.update_conversation_status(
-                                    me.terminal_view_id.into(),
+                                    me.terminal_view_id,
                                     conversation_id,
                                     ConversationStatus::InProgress,
                                     ctx,
@@ -2296,7 +2295,7 @@ impl BlocklistAIController {
         let id = history_model.update(ctx, |history_model, ctx| {
             // We don't mark passive conversations as "the active conversation" (at least when they first appear).
             history_model.start_new_conversation(
-                self.terminal_view_id.into(),
+                self.terminal_view_id,
                 is_autoexecute_override,
                 false,
                 false,
@@ -2502,12 +2501,12 @@ impl BlocklistAIController {
             match history_model.update_conversation_for_new_request_input(
                 request_input,
                 response_stream_id.clone(),
-                self.terminal_view_id.into(),
+                self.terminal_view_id,
                 ctx,
             ) {
                 Ok(_) => {
                     history_model.update_conversation_status(
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         conversation_data.id,
                         ConversationStatus::InProgress,
                         ctx,
@@ -2559,7 +2558,7 @@ impl BlocklistAIController {
             history_model.update(ctx, |history_model, ctx| {
                 history_model.mark_active_conversation_id(
                     conversation_data.id,
-                    self.terminal_view_id.into(),
+                    self.terminal_view_id,
                     ctx,
                 );
             });
@@ -2676,7 +2675,7 @@ impl BlocklistAIController {
                 if is_recovering {
                     history_model.update(ctx, |history_model, ctx| {
                         history_model.update_conversation_status(
-                            self.terminal_view_id.into(),
+                            self.terminal_view_id,
                             conversation_id,
                             ConversationStatus::Cancelled,
                             ctx,
@@ -2784,7 +2783,7 @@ impl BlocklistAIController {
                                     history_model.initialize_output_for_response_stream(
                                         &stream_id,
                                         conversation_id,
-                                        self.terminal_view_id.into(),
+                                        self.terminal_view_id,
                                         init_event,
                                         ctx,
                                     );
@@ -2824,7 +2823,7 @@ impl BlocklistAIController {
                                             &stream_id,
                                             client_actions,
                                             conversation_id,
-                                            self.terminal_view_id.into(),
+                                            self.terminal_view_id,
                                             &skill_path_origin,
                                             ctx,
                                         )
@@ -2886,7 +2885,7 @@ impl BlocklistAIController {
                                 recovery_pending,
                                 &stream_id,
                                 conversation_id,
-                                self.terminal_view_id.into(),
+                                self.terminal_view_id,
                                 ctx,
                             );
                         });
@@ -2912,7 +2911,7 @@ impl BlocklistAIController {
                 };
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                     history_model.update_conversation_status(
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         conversation_id,
                         status,
                         ctx,
@@ -2981,7 +2980,7 @@ impl BlocklistAIController {
                         history_model.mark_response_stream_cancelled(
                             &stream_id,
                             conversation_id,
-                            self.terminal_view_id.into(),
+                            self.terminal_view_id,
                             stream_cancellation.reason,
                             ctx,
                         );
@@ -3011,7 +3010,7 @@ impl BlocklistAIController {
                             /*recovery_pending*/ false,
                             &stream_id,
                             conversation_id,
-                            self.terminal_view_id.into(),
+                            self.terminal_view_id,
                             ctx,
                         );
                     });
@@ -3147,7 +3146,7 @@ impl BlocklistAIController {
                     history_model.mark_response_stream_completed_successfully(
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -3165,7 +3164,7 @@ impl BlocklistAIController {
                         /*recovery_pending*/ false,
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -3178,7 +3177,7 @@ impl BlocklistAIController {
                         /*recovery_pending*/ false,
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -3192,7 +3191,7 @@ impl BlocklistAIController {
                         /*recovery_pending*/ false,
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -3210,7 +3209,7 @@ impl BlocklistAIController {
                         /*recovery_pending*/ false,
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -3248,7 +3247,7 @@ impl BlocklistAIController {
                         /*recovery_pending*/ false,
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -3269,7 +3268,7 @@ impl BlocklistAIController {
                         /*recovery_pending*/ false,
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -3282,7 +3281,7 @@ impl BlocklistAIController {
                         /*recovery_pending*/ false,
                         stream_id,
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });

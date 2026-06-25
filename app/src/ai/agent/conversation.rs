@@ -21,7 +21,7 @@ use warp_multi_agent_api::response_event::stream_finished;
 use warp_multi_agent_api::response_event::stream_finished::TokenUsage;
 use warp_multi_agent_api::{self as api};
 use warpui::color::ColorU;
-use warpui::{AppContext, ModelContext, SingletonEntity};
+use warpui::{AppContext, EntityId, ModelContext, SingletonEntity};
 
 use super::api::ServerConversationToken;
 use super::task::helper::*;
@@ -54,8 +54,8 @@ use crate::ai::agent::{
 use crate::ai::ambient_agents::AmbientAgentTaskId;
 use crate::ai::artifacts::Artifact;
 use crate::ai::blocklist::{
-    AgentConversationOwnerId, BlocklistAIHistoryEvent, ConversationStatusUpdate, RequestInput,
-    ResponseStreamId, SerializedBlockListItem,
+    BlocklistAIHistoryEvent, ConversationStatusUpdate, RequestInput, ResponseStreamId,
+    SerializedBlockListItem,
 };
 use crate::ai::llms::LLMPreferences;
 use crate::ai::skills::SkillDescriptor;
@@ -900,7 +900,7 @@ impl AIConversation {
     pub fn update_status(
         &mut self,
         status: ConversationStatus,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) {
         self.update_status_with_error_message(status, None, owner_id, ctx);
@@ -910,7 +910,7 @@ impl AIConversation {
         &mut self,
         status: ConversationStatus,
         error_message: Option<String>,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) {
         self.status_error_message = if matches!(
@@ -1380,7 +1380,7 @@ impl AIConversation {
         &mut self,
         exchange_id: AIAgentExchangeId,
         is_hidden: bool,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) {
         // If the status is not being modified, return.
@@ -1547,7 +1547,7 @@ impl AIConversation {
     pub fn add_artifact(
         &mut self,
         artifact: Artifact,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) {
         self.artifacts.push(artifact.clone());
@@ -1564,7 +1564,7 @@ impl AIConversation {
         &mut self,
         document_uid: AIDocumentId,
         notebook_uid: NotebookId,
-        owner_id: Option<AgentConversationOwnerId>,
+        owner_id: Option<EntityId>,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) {
         let document_uid = document_uid.to_string();
@@ -1704,7 +1704,7 @@ impl AIConversation {
         &mut self,
         request_input: RequestInput,
         stream_id: ResponseStreamId,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
         if let Some(request_info) = self.added_exchanges_by_response.remove(&stream_id) {
@@ -1780,7 +1780,7 @@ impl AIConversation {
         &mut self,
         response_stream_id: &ResponseStreamId,
         exchange: AIAgentExchange,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
         let root_task_id = self.task_store.root_task_id().clone();
@@ -1885,7 +1885,7 @@ impl AIConversation {
         &mut self,
         stream_id: &ResponseStreamId,
         init_event: warp_multi_agent_api::response_event::StreamInit,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
         let Some(new_exchanges) = self.added_exchanges_by_response.get(stream_id).cloned() else {
@@ -1992,7 +1992,7 @@ impl AIConversation {
     pub fn mark_request_completed(
         &mut self,
         stream_id: &ResponseStreamId,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
         let Some(new_exchanges) = self.added_exchanges_by_response.get(stream_id).cloned() else {
@@ -2047,7 +2047,7 @@ impl AIConversation {
     pub fn mark_completed_after_successful_split(
         &mut self,
         stream_id: &ResponseStreamId,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
         // Remove the mapping between the response stream and this conversation, as the response stream is
@@ -2096,7 +2096,7 @@ impl AIConversation {
     pub fn mark_request_cancelled(
         &mut self,
         stream_id: &ResponseStreamId,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         reason: CancellationReason,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
@@ -2176,7 +2176,7 @@ impl AIConversation {
 
     pub fn mark_request_cancelled_due_to_revert(
         &mut self,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
         if self.transaction.is_some() {
@@ -2196,7 +2196,7 @@ impl AIConversation {
         stream_id: &ResponseStreamId,
         error: RenderableAIError,
         recovery_pending: bool,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> Result<(), UpdateConversationError> {
         let Some(added_exchanges) = self.added_exchanges_by_response.get(stream_id).cloned() else {
@@ -2375,7 +2375,7 @@ impl AIConversation {
     pub fn apply_client_action(
         &mut self,
         response_stream_id: &ResponseStreamId,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         action: warp_multi_agent_api::client_action::Action,
         skill_path_origin: &SkillPathOrigin,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
@@ -3077,7 +3077,7 @@ impl AIConversation {
     pub fn create_optimistic_cli_subagent_task(
         &mut self,
         block_id: &BlockId,
-        owner_id: AgentConversationOwnerId,
+        owner_id: EntityId,
         ctx: &mut ModelContext<BlocklistAIHistoryModel>,
     ) -> TaskId {
         if self.optimistic_cli_subagent_subtask_id.take().is_some() {

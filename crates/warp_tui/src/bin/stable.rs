@@ -5,8 +5,11 @@
 
 use anyhow::Result;
 use warp_core::channel::{Channel, ChannelState};
+#[path = "../args.rs"]
+mod args;
 
 fn main() -> Result<()> {
+    args::forward_args_to_environment()?;
     ChannelState::set(ChannelState::new(
         Channel::Stable,
         warp_channel_config::load_config!("stable"),

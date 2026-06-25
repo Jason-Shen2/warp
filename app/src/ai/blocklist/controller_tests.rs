@@ -51,13 +51,7 @@ fn passive_suggestions_request_params_omit_ambient_agent_task_id() {
             let task_id = new_ambient_agent_task_id();
             let conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                    history_model.start_new_conversation(
-                        terminal.id().into(),
-                        false,
-                        false,
-                        false,
-                        ctx,
-                    )
+                    history_model.start_new_conversation(terminal.id(), false, false, false, ctx)
                 });
 
             terminal.ai_controller().update(ctx, |controller, ctx| {
@@ -107,13 +101,7 @@ fn input_for_query_converts_prompt_attachments_and_ignores_live_staging() {
         terminal.update(&mut app, |terminal, ctx| {
             let conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                    history_model.start_new_conversation(
-                        terminal.id().into(),
-                        false,
-                        false,
-                        false,
-                        ctx,
-                    )
+                    history_model.start_new_conversation(terminal.id(), false, false, false, ctx)
                 });
 
             let controller = terminal.ai_controller();
@@ -237,7 +225,7 @@ fn mock_response_stream_updates_history_through_controller() {
         });
 
         let (conversation_id, stream) = terminal.update(&mut app, |view, ctx| {
-            let owner_id = view.id().into();
+            let owner_id = view.id();
             let stream_id = ResponseStreamId::new_for_test();
             let conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {

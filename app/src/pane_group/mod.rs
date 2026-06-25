@@ -57,9 +57,7 @@ use crate::ai::blocklist::suggested_agent_mode_workflow_modal::SuggestedAgentMod
 use crate::ai::blocklist::suggested_rule_modal::SuggestedRuleAndId;
 #[cfg(not(target_family = "wasm"))]
 use crate::ai::blocklist::BlocklistAIHistoryEvent;
-use crate::ai::blocklist::{
-    AgentConversationOwnerId, BlocklistAIHistoryModel, InputConfig, SerializedBlockListItem,
-};
+use crate::ai::blocklist::{BlocklistAIHistoryModel, InputConfig, SerializedBlockListItem};
 use crate::ai::document::ai_document_model::{AIDocumentId, AIDocumentModel, AIDocumentVersion};
 use crate::ai::execution_profiles::profiles::{AIExecutionProfilesModel, ClientProfileId};
 use crate::ai::llms::LLMId;
@@ -3132,7 +3130,7 @@ impl PaneGroup {
     ) -> Option<EntityId> {
         BlocklistAIHistoryModel::as_ref(ctx)
             .owner_id_for_conversation(&conversation_id)
-            .map(|id| id.entity_id())
+            .map(|id| id)
     }
 
     fn pane_id_for_owned_conversation(
@@ -3578,8 +3576,7 @@ impl PaneGroup {
             );
 
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, _ctx| {
-                history_model
-                    .mark_owner_as_conversation_transcript_viewer(terminal_view.id().into());
+                history_model.mark_owner_as_conversation_transcript_viewer(terminal_view.id());
             });
 
             Self::terminal_pane_data(
@@ -3672,7 +3669,7 @@ impl PaneGroup {
         }
 
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, _ctx| {
-            history_model.mark_owner_as_conversation_transcript_viewer(terminal_view.id().into());
+            history_model.mark_owner_as_conversation_transcript_viewer(terminal_view.id());
         });
 
         if let Some(ref terminal_manager) = terminal_manager {
@@ -4440,7 +4437,7 @@ impl PaneGroup {
 
             // Preserve conversations from terminal views before cleaning up the pane
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, _| {
-                history_model.mark_conversations_historical_for_owner(terminal_view_id.into());
+                history_model.mark_conversations_historical_for_owner(terminal_view_id);
             });
         }
 
@@ -4462,9 +4459,9 @@ impl PaneGroup {
         let closing_view_id = terminal_view.id();
 
         let history_handle = BlocklistAIHistoryModel::handle(ctx);
-        let transfers: Vec<(AIConversationId, AgentConversationOwnerId)> = history_handle
+        let transfers: Vec<(AIConversationId, EntityId)> = history_handle
             .as_ref(ctx)
-            .all_live_conversations_for_owner(closing_view_id.into())
+            .all_live_conversations_for_owner(closing_view_id)
             .filter_map(|conversation| {
                 let parent_id = conversation.parent_conversation_id()?;
                 let parent_owner = history_handle
@@ -6081,7 +6078,7 @@ impl PaneGroup {
         });
 
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, _ctx| {
-            history_model.mark_owner_as_conversation_transcript_viewer(terminal_view.id().into());
+            history_model.mark_owner_as_conversation_transcript_viewer(terminal_view.id());
         });
 
         // Register the transcript viewer as an ambient session so it appears in the Active section
@@ -6914,7 +6911,7 @@ impl PaneGroup {
                 BlocklistAIHistoryModel::as_ref(ctx).owner_id_for_conversation(&conversation_id)
             {
                 ctx.dispatch_typed_action(&WorkspaceAction::FocusTerminalViewInWorkspace {
-                    terminal_view_id: owner_view_id.entity_id(),
+                    terminal_view_id: owner_view_id,
                 });
                 return;
             }

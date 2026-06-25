@@ -16,7 +16,7 @@ pub fn delete_conversation(
     let server_api = ServerApiProvider::as_ref(ctx).get_ai_client();
 
     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, model_ctx| {
-        history.delete_conversation(conversation_id, terminal_view_id.map(Into::into), model_ctx);
+        history.delete_conversation(conversation_id, terminal_view_id, model_ctx);
 
         if let Some(token) = server_conversation_token {
             if FeatureFlag::CloudConversations.is_enabled() {
@@ -68,7 +68,7 @@ pub fn remove_conversation(
     };
 
     BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, model_ctx| {
-        history.remove_conversation(conversation_id, terminal_view_id.into(), model_ctx);
+        history.remove_conversation(conversation_id, terminal_view_id, model_ctx);
 
         if let (Some(token), Some(server_api)) = (server_conversation_token, server_api) {
             if FeatureFlag::CloudConversations.is_enabled() {

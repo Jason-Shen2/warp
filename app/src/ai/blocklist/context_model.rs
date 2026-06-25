@@ -327,14 +327,13 @@ impl BlocklistAIContextModel {
     /// Test-only constructor that skips every subscription and singleton lookup performed by
     /// [`Self::new`], so unit tests can build a [`BlocklistAIContextModel`] without registering
     /// `BlocklistAIHistoryModel`, `LLMPreferences`, `ModelEventDispatcher`, `Sessions`, or
-    /// `AppExecutionMode`. Callers still pass real [`TerminalModel`] and [`AgentViewController`]
-    /// handles to populate the struct fields, but neither needs to be functional for the
-    /// methods exercised by these tests.
+    /// `AppExecutionMode`. Callers still pass a real [`TerminalModel`] and may
+    /// pass an [`AgentViewController`] handle to exercise GUI selection behavior.
     #[cfg(test)]
     pub(crate) fn new_for_test(
         terminal_model: Arc<FairMutex<TerminalModel>>,
         terminal_view_id: EntityId,
-        agent_view_controller: ModelHandle<AgentViewController>,
+        agent_view_controller: Option<ModelHandle<AgentViewController>>,
     ) -> Self {
         Self {
             terminal_model,
@@ -345,7 +344,7 @@ impl BlocklistAIContextModel {
             pending_attachments: Default::default(),
             pending_query_state: PendingQueryState::default(),
             terminal_view_id,
-            agent_view_controller: Some(agent_view_controller),
+            agent_view_controller,
             pending_inline_diff_hunk_attachments: Default::default(),
             pending_document_id: None,
             auto_attached_agent_view_user_block_ids: Vec::new(),
@@ -790,28 +789,23 @@ impl BlocklistAIContextModel {
         origin: AgentViewEntryOrigin,
         ctx: &mut ModelContext<Self>,
     ) -> Result<AIConversationId, EnterAgentViewError> {
-        let (conversation_id, pending_query_state) =
-            if let Some(agent_view_controller) = &self.agent_view_controller {
-                let conversation_id = agent_view_controller.update(ctx, |controller, ctx| {
-                    controller.try_enter_agent_view(None, origin, ctx)
-                })?;
-                (conversation_id, PendingQueryState::default())
-            } else {
-                let conversation_id =
-                    BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-                        history.start_new_conversation(
-                            self.terminal_view_id.into(),
-                            false,
-                            false,
-                            false,
-                            ctx,
-                        )
-                    });
-                (
-                    conversation_id,
-                    PendingQueryState::Existing { conversation_id },
-                )
-            };
+        let (conversation_id, pending_query_state) = if let Some(agent_view_controller) =
+            &self.agent_view_controller
+        {
+            let conversation_id = agent_view_controller.update(ctx, |controller, ctx| {
+                controller.try_enter_agent_view(None, origin, ctx)
+            })?;
+            (conversation_id, PendingQueryState::default())
+        } else {
+            let conversation_id =
+                BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
+                    history.start_new_conversation(self.terminal_view_id, false, false, false, ctx)
+                });
+            (
+                conversation_id,
+                PendingQueryState::Existing { conversation_id },
+            )
+        };
         self.set_pending_query_state(pending_query_state, ctx);
         Ok(conversation_id)
     }
@@ -906,7 +900,7 @@ impl BlocklistAIContextModel {
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                     history.toggle_autoexecute_override(
                         &conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });
@@ -933,7 +927,7 @@ impl BlocklistAIContextModel {
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                     history.toggle_autoexecute_override(
                         conversation_id,
-                        self.terminal_view_id.into(),
+                        self.terminal_view_id,
                         ctx,
                     );
                 });

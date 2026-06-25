@@ -865,8 +865,7 @@ impl OrchestrationPillBar {
             return;
         };
         let self_pane_group_id = self.agent_view_controller.as_ref(ctx).pane_group_id();
-        let owner_pane_group_id =
-            pane_group_id_containing_terminal_view(owner_view_id.entity_id(), ctx);
+        let owner_pane_group_id = pane_group_id_containing_terminal_view(owner_view_id, ctx);
         if owner_pane_group_id.is_some() && owner_pane_group_id == self_pane_group_id {
             ctx.dispatch_typed_action(
                 &PaneHeaderAction::<TerminalAction, TerminalAction>::CustomAction(
@@ -877,7 +876,7 @@ impl OrchestrationPillBar {
             );
         } else {
             ctx.dispatch_typed_action(&WorkspaceAction::FocusTerminalViewInWorkspace {
-                terminal_view_id: owner_view_id.entity_id(),
+                terminal_view_id: owner_view_id,
             });
         }
     }
@@ -2453,8 +2452,7 @@ fn render_crumb(
         {
             let self_pane_group_id =
                 pane_group_id_containing_terminal_view(self_terminal_view_id, app);
-            let owner_pane_group_id =
-                pane_group_id_containing_terminal_view(owner_view_id.entity_id(), app);
+            let owner_pane_group_id = pane_group_id_containing_terminal_view(owner_view_id, app);
             if owner_pane_group_id.is_some() && owner_pane_group_id == self_pane_group_id {
                 ctx.dispatch_typed_action(
                     PaneHeaderAction::<TerminalAction, TerminalAction>::CustomAction(
@@ -2464,7 +2462,7 @@ fn render_crumb(
                 return;
             }
             ctx.dispatch_typed_action(WorkspaceAction::FocusTerminalViewInWorkspace {
-                terminal_view_id: owner_view_id.entity_id(),
+                terminal_view_id: owner_view_id,
             });
             return;
         }

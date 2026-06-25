@@ -360,7 +360,7 @@ impl QueuedQueryModel {
         history_model: &BlocklistAIHistoryModel,
     ) -> Option<AIConversationId> {
         history_model
-            .all_live_conversations_for_owner(terminal_view_id.into())
+            .all_live_conversations_for_owner(terminal_view_id)
             .find_map(|conversation| {
                 self.has_command_in_flight(conversation.id())
                     .then_some(conversation.id())

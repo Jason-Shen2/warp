@@ -71,7 +71,7 @@ impl TerminalView {
 
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
             history_model.update_conversation_status_with_error_message(
-                self.id().into(),
+                self.id(),
                 conversation_id,
                 status,
                 error_message,
@@ -987,7 +987,7 @@ impl TerminalView {
         let history_model = BlocklistAIHistoryModel::handle(ctx);
         let data = history_model
             .as_ref(ctx)
-            .active_conversation(view_id.into())
+            .active_conversation(view_id)
             .map(|conversation| ConversationDetailsData::from_conversation(conversation, ctx));
 
         if let Some(data) = data {

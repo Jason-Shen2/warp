@@ -187,7 +187,7 @@ fn initialize_run_agents_test(app: &mut App, mode: ExecutionMode) -> RunAgentsTe
     app.add_singleton_model(PrivacySettings::mock);
     app.add_singleton_model(UserWorkspaces::default_mock);
     let conversation_id = history.update(app, |history_model, ctx| {
-        history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+        history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
     });
     let start_agent_executor = app.add_model(StartAgentExecutor::new);
     let executor =
@@ -454,7 +454,7 @@ fn execute_publishes_every_parent_owned_plan_before_dispatch() {
                 state.conversation_id,
                 "00000000-0000-0000-0000-000000000001".to_string(),
                 None,
-                EntityId::new().into(),
+                EntityId::new(),
                 ctx,
             );
         });
@@ -535,7 +535,7 @@ fn cancel_during_plan_publication_does_not_dispatch_children() {
                 state.conversation_id,
                 "00000000-0000-0000-0000-000000000001".to_string(),
                 None,
-                EntityId::new().into(),
+                EntityId::new(),
                 ctx,
             );
         });

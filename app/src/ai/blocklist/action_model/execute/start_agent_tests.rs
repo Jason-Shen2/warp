@@ -70,7 +70,7 @@ fn execute_normalizes_legacy_local_codex_command_before_validation() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let action = build_start_agent_action_with_prompt(
             StartAgentVersion::V1,
@@ -109,14 +109,14 @@ fn execute_returns_error_when_child_startup_is_blocked_before_initialization() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         history_model.update(&mut app, |model, ctx| {
             model.assign_run_id_for_conversation(
                 parent_conversation_id,
                 PARENT_RUN_ID.to_string(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -144,7 +144,7 @@ fn execute_returns_error_when_child_startup_is_blocked_before_initialization() {
 
         let child_conversation_id = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id.into(),
+                terminal_view_id,
                 "Agent 1".to_string(),
                 parent_conversation_id,
                 None,
@@ -172,7 +172,7 @@ fn execute_returns_error_when_child_startup_is_blocked_before_initialization() {
 
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status(
-                terminal_view_id.into(),
+                terminal_view_id,
                 child_conversation_id,
                 ConversationStatus::Blocked {
                     blocked_action:
@@ -207,14 +207,14 @@ fn execute_resolves_error_when_request_linkage_happens_after_child_already_faile
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         history_model.update(&mut app, |model, ctx| {
             model.assign_run_id_for_conversation(
                 parent_conversation_id,
                 PARENT_RUN_ID.to_string(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -242,7 +242,7 @@ fn execute_resolves_error_when_request_linkage_happens_after_child_already_faile
 
         let child_conversation_id = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id.into(),
+                terminal_view_id,
                 "Agent 1".to_string(),
                 parent_conversation_id,
                 None,
@@ -252,7 +252,7 @@ fn execute_resolves_error_when_request_linkage_happens_after_child_already_faile
 
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status_with_error_message(
-                terminal_view_id.into(),
+                terminal_view_id,
                 child_conversation_id,
                 ConversationStatus::Error,
                 Some("'codex' CLI not found on your machine.".to_string()),
@@ -293,14 +293,14 @@ fn execute_resolves_success_when_request_linkage_happens_after_child_already_sta
         app.add_singleton_model(OrchestrationEventStreamer::new);
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         history_model.update(&mut app, |model, ctx| {
             model.assign_run_id_for_conversation(
                 parent_conversation_id,
                 PARENT_RUN_ID.to_string(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -328,7 +328,7 @@ fn execute_resolves_success_when_request_linkage_happens_after_child_already_sta
 
         let child_conversation_id = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id.into(),
+                terminal_view_id,
                 "Agent 1".to_string(),
                 parent_conversation_id,
                 None,
@@ -342,7 +342,7 @@ fn execute_resolves_success_when_request_linkage_happens_after_child_already_sta
                 child_conversation_id,
                 run_id.clone(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -379,14 +379,14 @@ fn execute_returns_detailed_error_when_child_startup_fails_before_initialization
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         history_model.update(&mut app, |model, ctx| {
             model.assign_run_id_for_conversation(
                 parent_conversation_id,
                 PARENT_RUN_ID.to_string(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -414,7 +414,7 @@ fn execute_returns_detailed_error_when_child_startup_fails_before_initialization
 
         let child_conversation_id = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id.into(),
+                terminal_view_id,
                 "Agent 1".to_string(),
                 parent_conversation_id,
                 None,
@@ -432,7 +432,7 @@ fn execute_returns_detailed_error_when_child_startup_fails_before_initialization
 
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status_with_error_message(
-                terminal_view_id.into(),
+                terminal_view_id,
                 child_conversation_id,
                 ConversationStatus::Error,
                 Some("Failed to resolve child agent skills: review-comments".to_string()),
@@ -459,14 +459,14 @@ fn execute_accepts_local_harness_child_when_parent_run_id_is_available() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         history_model.update(&mut app, |model, ctx| {
             model.assign_run_id_for_conversation(
                 parent_conversation_id,
                 PARENT_RUN_ID.to_string(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -507,7 +507,7 @@ fn execute_returns_error_when_local_harness_child_missing_parent_run_id() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let action = build_start_agent_action(
             StartAgentVersion::V2,
@@ -544,7 +544,7 @@ fn execute_rejects_invalid_local_harness_names_before_pane_creation() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let action = build_start_agent_action(
             StartAgentVersion::V2,
@@ -580,7 +580,7 @@ fn execute_rejects_disabled_local_codex_before_other_local_harness_validation() 
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let action = build_start_agent_action(
             StartAgentVersion::V2,
@@ -617,7 +617,7 @@ fn execute_allows_local_codex_when_flag_is_enabled() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let action = build_start_agent_action(
             StartAgentVersion::V2,
@@ -655,14 +655,14 @@ fn parallel_dispatch_keeps_two_pendings_distinguishable_by_request_id() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         history_model.update(&mut app, |model, ctx| {
             model.assign_run_id_for_conversation(
                 parent_conversation_id,
                 PARENT_RUN_ID.to_string(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -714,14 +714,14 @@ fn parallel_pendings_each_resolve_independently_via_recorded_child_id() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         history_model.update(&mut app, |model, ctx| {
             model.assign_run_id_for_conversation(
                 parent_conversation_id,
                 PARENT_RUN_ID.to_string(),
                 None,
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -774,7 +774,7 @@ fn parallel_pendings_each_resolve_independently_via_recorded_child_id() {
 
         let child_a = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id.into(),
+                terminal_view_id,
                 "Agent A".to_string(),
                 parent_conversation_id,
                 None,
@@ -783,7 +783,7 @@ fn parallel_pendings_each_resolve_independently_via_recorded_child_id() {
         });
         let child_b = history_model.update(&mut app, |history_model, ctx| {
             history_model.start_new_child_conversation(
-                terminal_view_id.into(),
+                terminal_view_id,
                 "Agent B".to_string(),
                 parent_conversation_id,
                 None,
@@ -802,7 +802,7 @@ fn parallel_pendings_each_resolve_independently_via_recorded_child_id() {
 
         history_model.update(&mut app, |history_model, ctx| {
             history_model.update_conversation_status_with_error_message(
-                terminal_view_id.into(),
+                terminal_view_id,
                 child_b,
                 ConversationStatus::Error,
                 Some("Agent B init failed".to_string()),
@@ -871,14 +871,14 @@ fn dispatch_pending_child_launch(
         });
     });
     let parent_conversation_id = history_model.update(app, |history_model, ctx| {
-        history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+        history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
     });
     history_model.update(app, |model, ctx| {
         model.assign_run_id_for_conversation(
             parent_conversation_id,
             PARENT_RUN_ID.to_string(),
             None,
-            terminal_view_id.into(),
+            terminal_view_id,
             ctx,
         );
     });
@@ -902,7 +902,7 @@ fn dispatch_pending_child_launch(
     });
     let child_conversation_id = history_model.update(app, |history_model, ctx| {
         history_model.start_new_child_conversation(
-            terminal_view_id.into(),
+            terminal_view_id,
             "Agent 1".to_string(),
             parent_conversation_id,
             None,
@@ -939,7 +939,7 @@ fn errored_child_launch_emits_cleanup_event() {
         link_pending_child(&state, &mut app);
         state.history_model.update(&mut app, |model, ctx| {
             model.update_conversation_status_with_error_message(
-                state.terminal_view_id.into(),
+                state.terminal_view_id,
                 state.child_conversation_id,
                 ConversationStatus::Error,
                 Some("Child agent failed to spawn".to_string()),
@@ -962,7 +962,7 @@ fn blocked_child_launch_does_not_emit_cleanup_event() {
         // chip so the user can resolve it.
         state.history_model.update(&mut app, |model, ctx| {
             model.update_conversation_status(
-                state.terminal_view_id.into(),
+                state.terminal_view_id,
                 state.child_conversation_id,
                 ConversationStatus::Blocked {
                     blocked_action: "GitHub authentication required.".to_string(),
@@ -995,7 +995,7 @@ fn successfully_started_child_does_not_emit_cleanup_event() {
                 state.child_conversation_id,
                 uuid::Uuid::new_v4().to_string(),
                 None,
-                state.terminal_view_id.into(),
+                state.terminal_view_id,
                 ctx,
             );
         });
@@ -1017,7 +1017,7 @@ fn execute_returns_error_when_remote_opencode_harness_is_requested() {
         let history_model = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let executor = app.add_model(StartAgentExecutor::new);
         let parent_conversation_id = history_model.update(&mut app, |history_model, ctx| {
-            history_model.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            history_model.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let action = build_start_agent_action(
             StartAgentVersion::V2,

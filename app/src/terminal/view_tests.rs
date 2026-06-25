@@ -205,7 +205,7 @@ fn append_exchange_with_inputs_and_handle_event(
     let (conversation_id, task_id, exchange_id, response_stream_id) =
         history_model.update(ctx, |history_model, ctx| {
             let conversation_id =
-                history_model.start_new_conversation(view.view_id.into(), false, false, false, ctx);
+                history_model.start_new_conversation(view.view_id, false, false, false, ctx);
             let task_id = history_model
                 .conversation(&conversation_id)
                 .expect("conversation should exist")
@@ -217,7 +217,7 @@ fn append_exchange_with_inputs_and_handle_event(
             history_model
                 .conversation_mut(&conversation_id)
                 .expect("conversation should exist")
-                .append_reassigned_exchange(&response_stream_id, exchange, view.view_id.into(), ctx)
+                .append_reassigned_exchange(&response_stream_id, exchange, view.view_id, ctx)
                 .expect("exchange should append");
             (conversation_id, task_id, exchange_id, response_stream_id)
         });
@@ -227,7 +227,7 @@ fn append_exchange_with_inputs_and_handle_event(
         &BlocklistAIHistoryEvent::AppendedExchange {
             exchange_id,
             task_id: task_id.clone(),
-            owner_id: view.view_id.into(),
+            owner_id: view.view_id,
             conversation_id,
             is_hidden: false,
             response_stream_id: Some(response_stream_id.clone()),
@@ -255,7 +255,7 @@ fn update_exchange_input_and_handle_event(
             .expect("exchange should exist");
         exchange.input = inputs;
         conversation
-            .append_reassigned_exchange(&response_stream_id, exchange, view.view_id.into(), ctx)
+            .append_reassigned_exchange(&response_stream_id, exchange, view.view_id, ctx)
             .expect("exchange should append");
     });
 
@@ -263,7 +263,7 @@ fn update_exchange_input_and_handle_event(
         history_model,
         &BlocklistAIHistoryEvent::UpdatedStreamingExchange {
             exchange_id,
-            owner_id: view.view_id.into(),
+            owner_id: view.view_id,
             conversation_id,
             is_hidden: false,
         },
@@ -373,7 +373,7 @@ fn updated_conversation_metadata_refreshes_selected_conversation_pane_title() {
             .expect("conversation should restore");
 
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-                history.restore_conversations(view.view_id.into(), vec![conversation], ctx);
+                history.restore_conversations(view.view_id, vec![conversation], ctx);
             });
             view.ai_context_model.update(ctx, |context_model, ctx| {
                 context_model.set_pending_query_state_for_existing_conversation(
@@ -394,7 +394,7 @@ fn updated_conversation_metadata_refreshes_selected_conversation_pane_title() {
             view.handle_ai_history_model_event(
                 BlocklistAIHistoryModel::handle(ctx),
                 &BlocklistAIHistoryEvent::UpdatedConversationTitle {
-                    owner_id: Some(view.view_id.into()),
+                    owner_id: Some(view.view_id),
                     conversation_id,
                     title: "Renamed title".to_string(),
                 },
@@ -803,12 +803,7 @@ fn jump_to_latest_agent_message_targets_latest_visible_exchange() {
                 history_model
                     .conversation_mut(&conversation_id)
                     .expect("conversation should exist")
-                    .append_reassigned_exchange(
-                        &response_stream_id,
-                        exchange,
-                        view.view_id.into(),
-                        ctx,
-                    )
+                    .append_reassigned_exchange(&response_stream_id, exchange, view.view_id, ctx)
                     .expect("exchange should append");
                 exchange_id
             })
@@ -944,16 +939,16 @@ fn restoring_conversation_to_new_pane_transfers_blocks_from_previous_owner() {
 
         BlocklistAIHistoryModel::handle(&app).read(&app, |history, _| {
             let original_owner_live_conversation_ids = history
-                .all_live_conversations_for_owner(original_owner_view_id.into())
+                .all_live_conversations_for_owner(original_owner_view_id)
                 .map(|conversation| conversation.id())
                 .collect::<Vec<_>>();
             let restored_view_live_conversation_ids = history
-                .all_live_conversations_for_owner(restored_view_id.into())
+                .all_live_conversations_for_owner(restored_view_id)
                 .map(|conversation| conversation.id())
                 .collect::<Vec<_>>();
             assert_eq!(
                 history.owner_id_for_conversation(&conversation_id),
-                Some(restored_view_id.into())
+                Some(restored_view_id)
             );
             assert!(original_owner_live_conversation_ids.is_empty());
             assert_eq!(restored_view_live_conversation_ids, vec![conversation_id]);
@@ -1066,7 +1061,7 @@ fn clicking_old_banner_for_open_conversation_focuses_current_owner_without_trans
 
         ActiveAgentViewsModel::handle(&app).read(&app, |active_views, ctx| {
             assert_eq!(
-                active_views.owner_id_for_conversation(conversation_id, ctx),
+                active_views.terminal_view_id_for_conversation(conversation_id, ctx),
                 Some(restored_view_id)
             );
         });
@@ -1095,10 +1090,10 @@ fn clicking_old_banner_for_open_conversation_focuses_current_owner_without_trans
         BlocklistAIHistoryModel::handle(&app).read(&app, |history, _| {
             assert_eq!(
                 history.owner_id_for_conversation(&conversation_id),
-                Some(restored_view_id.into())
+                Some(restored_view_id)
             );
             assert!(history
-                .all_live_conversations_for_owner(original_owner_view_id.into())
+                .all_live_conversations_for_owner(original_owner_view_id)
                 .next()
                 .is_none());
         });
@@ -1164,7 +1159,7 @@ fn appended_exchange_renders_in_current_owner_after_conversation_transfer() {
         BlocklistAIHistoryModel::handle(&app).read(&app, |history, _| {
             assert_eq!(
                 history.owner_id_for_conversation(&conversation_id),
-                Some(transferred_owner_view_id.into())
+                Some(transferred_owner_view_id)
             );
         });
 
@@ -1195,7 +1190,7 @@ fn appended_exchange_renders_in_current_owner_after_conversation_transfer() {
                     .append_reassigned_exchange(
                         &response_stream_id,
                         exchange,
-                        original_owner_view_id.into(),
+                        original_owner_view_id,
                         ctx,
                     )
                     .expect("exchange should append");
@@ -1208,7 +1203,7 @@ fn appended_exchange_renders_in_current_owner_after_conversation_transfer() {
                 &BlocklistAIHistoryEvent::AppendedExchange {
                     exchange_id,
                     task_id: task_id.clone(),
-                    owner_id: original_owner_view_id.into(),
+                    owner_id: original_owner_view_id,
                     conversation_id,
                     is_hidden: false,
                     response_stream_id: Some(response_stream_id.clone()),
@@ -1223,7 +1218,7 @@ fn appended_exchange_renders_in_current_owner_after_conversation_transfer() {
                 &BlocklistAIHistoryEvent::AppendedExchange {
                     exchange_id,
                     task_id,
-                    owner_id: original_owner_view_id.into(),
+                    owner_id: original_owner_view_id,
                     conversation_id,
                     is_hidden: false,
                     response_stream_id: Some(response_stream_id),
@@ -5262,7 +5257,7 @@ fn ctrl_c_after_stop_takeover_cancels_conversation() {
         let conversation_id = terminal.update(&mut app, |view, ctx| {
             let conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-                    history.start_new_conversation(view.view_id.into(), false, false, false, ctx)
+                    history.start_new_conversation(view.view_id, false, false, false, ctx)
                 });
 
             view.model
@@ -5317,7 +5312,7 @@ fn ctrl_c_after_transfer_takeover_does_not_cancel_conversation() {
         let conversation_id = terminal.update(&mut app, |view, ctx| {
             let conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-                    history.start_new_conversation(view.view_id.into(), false, false, false, ctx)
+                    history.start_new_conversation(view.view_id, false, false, false, ctx)
                 });
 
             view.model
@@ -6689,18 +6684,12 @@ fn cli_session_status_updates_active_child_conversation() {
         let child_conversation_id = terminal.update(&mut app, |view, ctx| {
             let parent_conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                    history_model.start_new_conversation(
-                        view.view_id.into(),
-                        false,
-                        false,
-                        false,
-                        ctx,
-                    )
+                    history_model.start_new_conversation(view.view_id, false, false, false, ctx)
                 });
             let child_conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                     history_model.start_new_child_conversation(
-                        view.view_id.into(),
+                        view.view_id,
                         "Agent 2".to_string(),
                         parent_conversation_id,
                         None,
@@ -6847,18 +6836,12 @@ fn cli_session_status_updates_single_child_conversation_without_agent_view() {
         let child_conversation_id = terminal.update(&mut app, |view, ctx| {
             let parent_conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                    history_model.start_new_conversation(
-                        view.view_id.into(),
-                        false,
-                        false,
-                        false,
-                        ctx,
-                    )
+                    history_model.start_new_conversation(view.view_id, false, false, false, ctx)
                 });
             let child_conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                     history_model.start_new_child_conversation(
-                        view.view_id.into(),
+                        view.view_id,
                         "Agent 2".to_string(),
                         parent_conversation_id,
                         None,
@@ -7611,7 +7594,7 @@ fn cmd_k_does_not_clear_buffer_when_agent_is_driving_command() {
 
             let conversation_id =
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
-                    history.start_new_conversation(view.view_id.into(), false, false, false, ctx)
+                    history.start_new_conversation(view.view_id, false, false, false, ctx)
                 });
             set_active_block_agent_driving(view, conversation_id);
 
@@ -7751,7 +7734,7 @@ fn cmd_k_in_agent_view_cancels_in_progress_conversation_and_starts_new_one() {
                 history
                     .conversation_mut(&old_conversation_id)
                     .expect("conversation should exist")
-                    .append_reassigned_exchange(&stream_id, exchange, view.view_id.into(), ctx)
+                    .append_reassigned_exchange(&stream_id, exchange, view.view_id, ctx)
                     .expect("exchange should append");
             });
             let stream = ctx.add_model(|_| ResponseStream::new_for_test(stream_id.clone()));

@@ -274,11 +274,7 @@ impl AIDocumentView {
                         conversation_ids,
                     } => {
                         // Try to populate terminal view if conversations were restored
-                        me.maybe_populate_terminal_view(
-                            owner_id.entity_id(),
-                            conversation_ids,
-                            ctx,
-                        );
+                        me.maybe_populate_terminal_view(*owner_id, conversation_ids, ctx);
                     }
                     BlocklistAIHistoryEvent::OrchestrationConfigUpdated {
                         conversation_id: cid,

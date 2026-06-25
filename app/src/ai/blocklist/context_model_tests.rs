@@ -19,7 +19,9 @@ use warpui::{App, EntityId, ModelHandle};
 use super::{BlocklistAIContextModel, PendingAttachment, PendingFile};
 use crate::ai::agent::conversation::AIConversationId;
 use crate::ai::agent::{AIAgentContext, ImageContext};
-use crate::ai::blocklist::agent_view::{AgentViewController, EphemeralMessageModel};
+use crate::ai::blocklist::agent_view::{
+    AgentViewController, AgentViewEntryOrigin, EphemeralMessageModel,
+};
 use crate::ai::blocklist::{
     BlocklistAIHistoryModel, QueuedQuery, QueuedQueryModel, QueuedQueryOrigin,
 };
@@ -134,9 +136,82 @@ fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextMode
         BlocklistAIContextModel::new_for_test(
             terminal_model,
             terminal_view_id,
-            agent_view_controller,
+            Some(agent_view_controller),
         )
     })
+}
+/// Builds the controller-less context model owned by a TUI conversation surface.
+fn build_controllerless_context_model(
+    app: &mut App,
+) -> (ModelHandle<BlocklistAIContextModel>, EntityId) {
+    let terminal_model = Arc::new(FairMutex::new(TerminalModel::new_for_test(
+        block_size(),
+        color::List::from(&Colors::default()),
+        ChannelEventListener::new_for_test(),
+        Arc::new(Background::default()),
+        false,
+        None,
+        false,
+        false,
+        None,
+    )));
+    let owner_id = EntityId::new();
+    let model =
+        app.add_model(|_| BlocklistAIContextModel::new_for_test(terminal_model, owner_id, None));
+    (model, owner_id)
+}
+
+#[test]
+fn controllerless_context_owns_selected_conversation() {
+    App::test((), |mut app| async move {
+        let (model, _) = build_controllerless_context_model(&mut app);
+        let conversation_id = AIConversationId::new();
+
+        model.update(&mut app, |model, ctx| {
+            model.set_pending_query_state_for_existing_conversation(
+                conversation_id,
+                AgentViewEntryOrigin::Cli,
+                ctx,
+            );
+        });
+        model.read(&app, |model, ctx| {
+            assert_eq!(model.selected_conversation_id(ctx), Some(conversation_id));
+        });
+
+        model.update(&mut app, |model, ctx| {
+            model.set_pending_query_state_for_new_conversation(AgentViewEntryOrigin::Cli, ctx);
+        });
+        model.read(&app, |model, ctx| {
+            assert_eq!(model.selected_conversation_id(ctx), None);
+        });
+    });
+}
+
+#[test]
+fn controllerless_new_conversation_is_selected_and_owner_scoped() {
+    App::test((), |mut app| async move {
+        let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
+        let (model, owner_id) = build_controllerless_context_model(&mut app);
+
+        let conversation_id = model
+            .update(&mut app, |model, ctx| {
+                model.try_enter_agent_view_for_new_conversation(AgentViewEntryOrigin::Cli, ctx)
+            })
+            .expect("controller-less conversation creation should succeed");
+
+        model.read(&app, |model, ctx| {
+            assert_eq!(model.selected_conversation_id(ctx), Some(conversation_id));
+        });
+        history.read(&app, |history, _| {
+            assert_eq!(
+                history
+                    .all_live_conversations_for_owner(owner_id)
+                    .map(|conversation| conversation.id())
+                    .collect::<Vec<_>>(),
+                vec![conversation_id]
+            );
+        });
+    });
 }
 
 fn make_image_attachment(file_name: &str) -> PendingAttachment {

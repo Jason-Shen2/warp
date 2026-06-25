@@ -111,7 +111,7 @@ impl History {
 
         let ai_queries = BlocklistAIHistoryModel::handle(app)
             .as_ref(app)
-            .all_ai_queries(Some(terminal_view_id.into()))
+            .all_ai_queries(Some(terminal_view_id))
             .filter(|query| {
                 !ignored_suggestions.is_ignored(&query.query_text, SuggestionType::AIQuery)
             })

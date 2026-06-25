@@ -368,7 +368,7 @@ impl AutoCloudHandoffController {
         // only fall back to the last-focused id.
         let terminal_view_id = BlocklistAIHistoryModel::as_ref(ctx)
             .owner_id_for_conversation(&conversation_id)
-            .map(|id| id.entity_id())
+            .map(|id| id)
             .or_else(|| {
                 active_agent_views.get_terminal_view_id_for_conversation(conversation_id, ctx)
             })

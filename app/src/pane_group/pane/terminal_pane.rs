@@ -619,7 +619,7 @@ impl PaneContent for TerminalPane {
             // TODO(roland): store conversation id or server conversation token on the model ConversationTranscriptViewerStatus
             if let Some(conversation) = history_model
                 .as_ref(ctx)
-                .all_live_conversations_for_owner(terminal_view_id.into())
+                .all_live_conversations_for_owner(terminal_view_id)
                 .next()
             {
                 if let Some(token) = conversation.server_conversation_token() {
@@ -690,7 +690,7 @@ fn agent_conversation_action_state(
     let conversation = history_model.conversation(&conversation_id)?;
     let owner_terminal_view_id = history_model.owner_id_for_conversation(&conversation_id)?;
     Some(AgentConversationActionState {
-        owner_terminal_view_id: owner_terminal_view_id.entity_id(),
+        owner_terminal_view_id: owner_terminal_view_id,
         task_id: conversation.task_id(),
         is_in_progress: conversation.status().is_in_progress(),
         is_cloud_cancel_candidate: conversation.is_remote_child()
@@ -793,7 +793,7 @@ fn stop_agent_conversation(
         // If the owner view is gone, still make Stop visible in history.
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
             history_model.update_conversation_status(
-                state.owner_terminal_view_id.into(),
+                state.owner_terminal_view_id,
                 conversation_id,
                 ConversationStatus::Cancelled,
                 ctx,
@@ -1851,7 +1851,7 @@ fn launch_local_harness_child(
                             conversation_id,
                             run_id,
                             Some(task_id),
-                            terminal_view_id.into(),
+                            terminal_view_id,
                             ctx,
                         );
                     });
@@ -1975,7 +1975,7 @@ fn launch_remote_child(
     let terminal_view_id = new_terminal_view.id();
     let conversation_id = BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
         let id = history_model.start_new_child_conversation(
-            terminal_view_id.into(),
+            terminal_view_id,
             request_name.clone(),
             request.parent_conversation_id,
             Some(orchestration_harness),
@@ -2005,7 +2005,7 @@ fn launch_remote_child(
             );
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
                 history_model.update_conversation_status_with_error_message(
-                    terminal_view_id.into(),
+                    terminal_view_id,
                     conversation_id,
                     ConversationStatus::Error,
                     Some(error_message),

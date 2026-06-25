@@ -712,17 +712,17 @@ fn delete_conversation_drops_only_that_conversation_state() {
         let history = BlocklistAIHistoryModel::handle(&app);
         let terminal_view_id = warpui::EntityId::new();
         let conv_a = history.update(&mut app, |h, ctx| {
-            h.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            h.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let conv_b = history.update(&mut app, |h, ctx| {
-            h.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            h.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         append_user(&model, &mut app, conv_a, "a1");
         append_user(&model, &mut app, conv_b, "b1");
         model.update(&mut app, |m, ctx| m.toggle_queue_next_prompt(conv_a, ctx));
 
         history.update(&mut app, |h, ctx| {
-            h.delete_conversation(conv_a, Some(terminal_view_id.into()), ctx);
+            h.delete_conversation(conv_a, Some(terminal_view_id), ctx);
         });
 
         model.read(&app, |m, _| {
@@ -886,13 +886,13 @@ fn delete_conversation_clears_in_flight_command() {
         let history = BlocklistAIHistoryModel::handle(&app);
         let terminal_view_id = warpui::EntityId::new();
         let conv = history.update(&mut app, |h, ctx| {
-            h.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            h.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         model.update(&mut app, |m, _| m.arm_command_in_flight(conv));
         model.read(&app, |m, _| assert!(m.has_command_in_flight(conv)));
 
         history.update(&mut app, |h, ctx| {
-            h.delete_conversation(conv, Some(terminal_view_id.into()), ctx);
+            h.delete_conversation(conv, Some(terminal_view_id), ctx);
         });
         model.read(&app, |m, _| assert!(!m.has_command_in_flight(conv)));
     });
@@ -905,16 +905,16 @@ fn clear_conversations_for_owner_drops_every_listed_conversation() {
         let history = BlocklistAIHistoryModel::handle(&app);
         let terminal_view_id = warpui::EntityId::new();
         let conv_a = history.update(&mut app, |h, ctx| {
-            h.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            h.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         let conv_b = history.update(&mut app, |h, ctx| {
-            h.start_new_conversation(terminal_view_id.into(), false, false, false, ctx)
+            h.start_new_conversation(terminal_view_id, false, false, false, ctx)
         });
         append_user(&model, &mut app, conv_a, "a1");
         append_user(&model, &mut app, conv_b, "b1");
 
         history.update(&mut app, |h, ctx| {
-            h.clear_conversations_for_owner(terminal_view_id.into(), ctx)
+            h.clear_conversations_for_owner(terminal_view_id, ctx)
         });
 
         model.read(&app, |m, _| {

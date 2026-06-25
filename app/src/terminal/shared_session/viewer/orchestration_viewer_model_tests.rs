@@ -173,8 +173,8 @@ fn setup_model(
     let terminal_view_id = terminal_view.id();
     let history = BlocklistAIHistoryModel::handle(app);
     let parent_conversation_id = history.update(app, |history, ctx| {
-        let id = history.start_new_conversation(terminal_view_id.into(), false, false, false, ctx);
-        history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+        let id = history.start_new_conversation(terminal_view_id, false, false, false, ctx);
+        history.set_active_conversation_id(id, terminal_view_id, ctx);
         id
     });
 
@@ -720,7 +720,7 @@ fn child_status_changed_with_unknown_run_id_is_silently_dropped() {
         history.read(&app, |history, _| {
             assert!(
                 history
-                    .all_live_conversations_for_owner(terminal_view_id.into())
+                    .all_live_conversations_for_owner(terminal_view_id)
                     .filter(|conversation| conversation.is_viewing_shared_session())
                     .count()
                     == 0,
@@ -1193,13 +1193,13 @@ fn b2_backfills_parent_agent_id_on_orchestrator_token_assigned() {
                 parent_conv_id,
                 parent_run_id.clone(),
                 Some(parent),
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
         let synthetic_event = BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
             conversation_id: parent_conv_id,
-            owner_id: terminal_view_id.into(),
+            owner_id: terminal_view_id,
         };
         model_handle.update(&mut app, |model, ctx| {
             model.maybe_backfill_parent_agent_ids(&synthetic_event, ctx);
@@ -1240,7 +1240,7 @@ fn b2_does_not_overwrite_existing_parent_agent_id() {
                 parent_conv_id,
                 original_parent_run_id.clone(),
                 Some(parent),
-                terminal_view_id.into(),
+                terminal_view_id,
                 ctx,
             );
         });
@@ -1263,7 +1263,7 @@ fn b2_does_not_overwrite_existing_parent_agent_id() {
         // Now fire a backfill: the existing `parent_agent_id` must stay.
         let synthetic_event = BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
             conversation_id: parent_conv_id,
-            owner_id: terminal_view_id.into(),
+            owner_id: terminal_view_id,
         };
         model_handle.update(&mut app, |model, ctx| {
             model.maybe_backfill_parent_agent_ids(&synthetic_event, ctx);
@@ -1305,7 +1305,7 @@ fn b2_ignores_token_assigned_for_unrelated_conversation() {
         // backfill handler must short-circuit on the parent-mismatch check.
         let unrelated_event = BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
             conversation_id: AIConversationId::new(),
-            owner_id: terminal_view_id.into(),
+            owner_id: terminal_view_id,
         };
         model_handle.update(&mut app, |model, ctx| {
             model.maybe_backfill_parent_agent_ids(&unrelated_event, ctx);
@@ -1315,7 +1315,7 @@ fn b2_ignores_token_assigned_for_unrelated_conversation() {
         // the orchestrator id is still unknown.
         let still_no_parent_id = BlocklistAIHistoryEvent::ConversationServerTokenAssigned {
             conversation_id: parent_conv_id,
-            owner_id: terminal_view_id.into(),
+            owner_id: terminal_view_id,
         };
         model_handle.update(&mut app, |model, ctx| {
             model.maybe_backfill_parent_agent_ids(&still_no_parent_id, ctx);
@@ -1350,7 +1350,7 @@ fn make_appended_exchange_event(
     BlocklistAIHistoryEvent::AppendedExchange {
         exchange_id: AIAgentExchangeId::new(),
         task_id: TaskId::new("test-task".to_string()),
-        owner_id: terminal_view_id.into(),
+        owner_id: terminal_view_id,
         conversation_id,
         is_hidden: false,
         response_stream_id: None,
@@ -1742,10 +1742,9 @@ fn viewer_model_retries_consumer_registration_on_set_active_conversation() {
         // `register_viewer_mode_consumer_if_possible`.
         let history = BlocklistAIHistoryModel::handle(&app);
         history.update(&mut app, |history, ctx| {
-            let id =
-                history.start_new_conversation(terminal_view_id.into(), false, true, false, ctx);
+            let id = history.start_new_conversation(terminal_view_id, false, true, false, ctx);
             history.set_viewing_shared_session_for_conversation(id, true);
-            history.set_active_conversation_id(id, terminal_view_id.into(), ctx);
+            history.set_active_conversation_id(id, terminal_view_id, ctx);
         });
 
         streamer.read(&app, |me, _| {
@@ -1795,16 +1794,16 @@ fn viewer_model_does_not_register_when_active_conversation_is_a_child_placeholde
         let history = BlocklistAIHistoryModel::handle(&app);
         history.update(&mut app, |history, ctx| {
             let parent_conv_id =
-                history.start_new_conversation(terminal_view_id.into(), false, false, false, ctx);
+                history.start_new_conversation(terminal_view_id, false, false, false, ctx);
             let child_id = history.start_new_child_conversation(
-                terminal_view_id.into(),
+                terminal_view_id,
                 "child".to_string(),
                 parent_conv_id,
                 None,
                 ctx,
             );
             history.set_viewing_shared_session_for_conversation(child_id, true);
-            history.set_active_conversation_id(child_id, terminal_view_id.into(), ctx);
+            history.set_active_conversation_id(child_id, terminal_view_id, ctx);
         });
 
         let streamer = OrchestrationEventStreamer::handle(&app);
