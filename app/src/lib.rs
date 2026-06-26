@@ -400,7 +400,7 @@ pub(crate) enum LaunchMode {
 
     /// Remote server daemon — long-lived headless process serving remote
     /// connections via a Unix domain socket.
-    #[cfg_attr(target_family = "wasm", allow(dead_code))]
+    #[cfg_attr(not(unix), allow(dead_code))]
     RemoteServerDaemon {
         /// Stable identity key used to partition the daemon's socket/PID
         /// directory on the remote host.
