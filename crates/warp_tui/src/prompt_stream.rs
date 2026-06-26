@@ -7,7 +7,7 @@ use pathfinder_geometry::vector::Vector2F;
 use warp::tui_export::{
     AIAgentTextSection, AIConversationId, ActiveSession, AfterBlockCompletedEvent, BannerState,
     BlockIndex, BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
-    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelection,
+    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelection, ConversationStatus,
     ConversationStatusUpdate, GetRelevantFilesController, IsSharedSessionCreator,
     LocalTtyTerminalManager, PtyIntent, PtyIntentEvent, ServerConversationToken, ShellLaunchData,
     TerminalManagerTrait, TerminalSurface, TerminalSurfaceInit, TerminalSurfaceResult,
@@ -46,6 +46,7 @@ impl TypedActionView for PromptStreamHostView {
 struct PromptStreamSurface {
     conversation_model: ModelHandle<TuiConversationModel>,
     last_output: String,
+    is_terminating: bool,
 }
 /// Event type for the prompt-stream terminal surface.
 struct PromptStreamEvent;
@@ -140,7 +141,27 @@ impl PromptStreamSurface {
         Self {
             conversation_model,
             last_output: String::new(),
+            is_terminating: false,
         }
+    }
+
+    /// Prints the server conversation token and final status.
+    fn print_final_status(
+        &self,
+        conversation_id: AIConversationId,
+        status: &ConversationStatus,
+        ctx: &AppContext,
+    ) {
+        if !self.last_output.is_empty() && !self.last_output.ends_with('\n') {
+            println!();
+        }
+        if let Some(server_conversation_token) = BlocklistAIHistoryModel::as_ref(ctx)
+            .conversation(&conversation_id)
+            .and_then(|conversation| conversation.server_conversation_token())
+        {
+            println!("conversation_id={}", server_conversation_token.as_str());
+        }
+        println!("status={status:?}");
     }
 
     /// Submits a new prompt or restores and follows up in an existing conversation.
@@ -169,6 +190,9 @@ impl PromptStreamSurface {
         event: &TuiConversationModelEvent,
         ctx: &mut ViewContext<Self>,
     ) {
+        if self.is_terminating {
+            return;
+        }
         match event {
             TuiConversationModelEvent::SelectedConversationChanged { conversation_id } => {
                 let _ = conversation_id;
@@ -186,18 +210,27 @@ impl PromptStreamSurface {
                 update: ConversationStatusUpdate::Changed { .. },
             } => {
                 self.print_stream_snapshot(*conversation_id, ctx);
-                if !status.is_in_progress() {
-                    if !self.last_output.is_empty() && !self.last_output.ends_with('\n') {
-                        println!();
+                if self.is_terminating {
+                    return;
+                }
+                match status {
+                    ConversationStatus::InProgress
+                    | ConversationStatus::TransientError
+                    | ConversationStatus::WaitingForEvents => {}
+                    ConversationStatus::Success => {
+                        self.print_final_status(*conversation_id, status, ctx);
+                        self.is_terminating = true;
+                        ctx.terminate_app(TerminationMode::ForceTerminate, None);
                     }
-                    if let Some(server_conversation_token) = BlocklistAIHistoryModel::as_ref(ctx)
-                        .conversation(conversation_id)
-                        .and_then(|conversation| conversation.server_conversation_token())
-                    {
-                        println!("conversation_id={}", server_conversation_token.as_str());
+                    ConversationStatus::Error
+                    | ConversationStatus::Cancelled
+                    | ConversationStatus::Blocked { .. } => {
+                        self.print_final_status(*conversation_id, status, ctx);
+                        self.terminate_with_error(
+                            anyhow!("TUI prompt streaming ended with status {status:?}"),
+                            ctx,
+                        );
                     }
-                    println!("status={status:?}");
-                    ctx.terminate_app(TerminationMode::ForceTerminate, None);
                 }
             }
             TuiConversationModelEvent::ConversationStatusChanged {
@@ -252,7 +285,11 @@ impl PromptStreamSurface {
     }
 
     /// Terminates prompt streaming with a user-visible error.
-    fn terminate_with_error(&self, error: anyhow::Error, ctx: &mut ViewContext<Self>) {
+    fn terminate_with_error(&mut self, error: anyhow::Error, ctx: &mut ViewContext<Self>) {
+        if self.is_terminating {
+            return;
+        }
+        self.is_terminating = true;
         ctx.terminate_app(TerminationMode::ForceTerminate, Some(Err(error)));
     }
 }
