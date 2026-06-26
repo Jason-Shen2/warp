@@ -224,7 +224,7 @@ pub struct BlocklistAIInputModel {
 
 impl BlocklistAIInputModel {
     /// Creates input state for a terminal surface.
-    pub(crate) fn new(
+    pub fn new(
         model: Arc<FairMutex<TerminalModel>>,
         conversation_selection: ConversationSelectionHandle,
         ai_context_model: ModelHandle<BlocklistAIContextModel>,

@@ -188,6 +188,45 @@ use crate::view_components::DismissibleToast;
 pub mod workflows;
 pub mod workspace;
 
+/// App APIs used by the `warp_tui` frontend.
+#[cfg(feature = "tui")]
+pub mod tui_api {
+    pub use crate::ai::agent::api::ServerConversationToken;
+    pub use crate::ai::agent::conversation::{
+        AIConversationAutoexecuteMode, AIConversationId, ConversationStatus,
+    };
+    pub use crate::ai::agent::AIAgentTextSection;
+    pub use crate::ai::blocklist::agent_view::{
+        AgentViewDisplayMode, AgentViewEntryOrigin, EnterAgentViewError,
+    };
+    pub use crate::ai::blocklist::conversation_selection::{
+        ConversationSelection, ConversationSelectionEvent, ConversationSelectionHandle,
+        PendingQueryState,
+    };
+    pub use crate::ai::blocklist::history_model::{
+        BlocklistAIHistoryEvent, BlocklistAIHistoryModel, CloudConversationData,
+        ConversationStatusUpdate,
+    };
+    pub use crate::ai::blocklist::{
+        BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
+        BlocklistAIInputModel,
+    };
+    pub use crate::ai::get_relevant_files::controller::GetRelevantFilesController;
+    pub use crate::banner::BannerState;
+    pub use crate::terminal::event::AfterBlockCompletedEvent;
+    pub use crate::terminal::local_tty::{
+        TerminalManager as LocalTtyTerminalManager, TerminalManagerInit, TerminalSurfaceInit,
+        TerminalSurfaceResult,
+    };
+    pub use crate::terminal::model::session::active_session::ActiveSession;
+    pub use crate::terminal::model::terminal_model::BlockIndex;
+    pub use crate::terminal::shared_session::IsSharedSessionCreator;
+    pub use crate::terminal::{
+        PtyIntent, PtyIntentEvent, ShellLaunchData, TerminalManager as TerminalManagerTrait,
+        TerminalModel, TerminalSurface,
+    };
+}
+
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::ops::Deref;
@@ -409,9 +448,12 @@ pub(crate) enum LaunchMode {
     #[cfg_attr(not(feature = "tui"), allow(dead_code))]
     Tui {
         #[cfg(feature = "tui")]
-        args: crate::tui::TuiArgs,
+        frontend: Option<TuiFrontend>,
     },
 }
+
+#[cfg(feature = "tui")]
+type TuiFrontend = Box<dyn FnOnce(&mut AppContext) -> bool + Send + 'static>;
 
 impl LaunchMode {
     fn args(&self) -> Cow<'_, warp_cli::AppArgs> {
@@ -812,19 +854,17 @@ pub fn run_integration_test(driver: TestDriver) -> Result<()> {
     run_internal(launch)
 }
 
-/// Runs the headless TUI front-end or a Warp worker requested through the same executable.
+/// Boots the app and invokes a headless TUI frontend after authentication.
 #[cfg(feature = "tui")]
-pub fn run_tui() -> Result<()> {
-    if let Some(result) = run_worker_if_requested() {
-        return result;
-    }
-    let args = crate::tui::TuiArgs::from_env()?;
-    run_internal(LaunchMode::Tui { args })
+pub fn run_tui(frontend: impl FnOnce(&mut AppContext) -> bool + Send + 'static) -> Result<()> {
+    run_internal(LaunchMode::Tui {
+        frontend: Some(Box::new(frontend)),
+    })
 }
 
 /// Dispatches a worker command when the current executable was re-invoked for one.
 #[cfg(feature = "tui")]
-fn run_worker_if_requested() -> Option<Result<()>> {
+pub fn run_tui_worker_if_requested() -> Option<Result<()>> {
     // Worker spawners always put the worker mode in argv[1]. Do not scan later
     // arguments because a TUI prompt value may legitimately match a worker name.
     let is_worker = std::env::args()
@@ -1180,8 +1220,13 @@ fn run_internal(mut launch_mode: LaunchMode) -> Result<()> {
         // auth/`AuthManager` exist), but runs its own init instead of the
         // GUI/CLI `launch()` path.
         #[cfg(feature = "tui")]
-        if let LaunchMode::Tui { args } = &mut launch_mode {
-            crate::tui::init(std::mem::take(args), ctx);
+        if let LaunchMode::Tui { frontend } = &mut launch_mode {
+            crate::tui::init(
+                frontend
+                    .take()
+                    .expect("TUI frontend must be initialized exactly once"),
+                ctx,
+            );
             return;
         }
 

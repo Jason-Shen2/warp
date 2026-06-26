@@ -9,7 +9,7 @@ use crate::ai::agent::conversation::{
 };
 
 /// Handle to a terminal surface's conversation-selection implementation.
-pub(crate) type ConversationSelectionHandle = ModelHandle<Box<dyn ConversationSelection>>;
+pub type ConversationSelectionHandle = ModelHandle<Box<dyn ConversationSelection>>;
 
 /// The conversation targeted by the next query from a terminal surface.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -46,7 +46,7 @@ pub enum ConversationSelectionEvent {
 }
 
 /// Object-safe next-prompt conversation-selection contract implemented by each terminal surface.
-pub(crate) trait ConversationSelection {
+pub trait ConversationSelection {
     /// Returns the conversation targeted by the next query.
     fn selected_conversation_id(&self, app: &AppContext) -> Option<AIConversationId>;
 

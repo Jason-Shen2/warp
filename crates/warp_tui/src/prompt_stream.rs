@@ -1,10 +1,17 @@
 //! One-shot TUI prompt streaming to stdout.
 
-use std::any::Any;
 use std::io::{self, Write};
 
 use anyhow::anyhow;
 use pathfinder_geometry::vector::Vector2F;
+use warp::tui_api::{
+    AIAgentTextSection, AIConversationId, ActiveSession, AfterBlockCompletedEvent, BannerState,
+    BlockIndex, BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
+    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelection,
+    ConversationStatusUpdate, GetRelevantFilesController, IsSharedSessionCreator,
+    LocalTtyTerminalManager, PtyIntent, PtyIntentEvent, ServerConversationToken, ShellLaunchData,
+    TerminalManagerTrait, TerminalSurface, TerminalSurfaceInit, TerminalSurfaceResult,
+};
 use warpui::elements::Empty;
 use warpui::platform::{TerminationMode, WindowStyle};
 use warpui::{
@@ -15,27 +22,6 @@ use warpui::{
 use super::args::TuiArgs;
 use super::conversation_model::{TuiConversationModel, TuiConversationModelEvent};
 use super::conversation_selection::TuiConversationSelection;
-use crate::ai::agent::api::ServerConversationToken;
-use crate::ai::agent::conversation::AIConversationId;
-use crate::ai::agent::AIAgentTextSection;
-use crate::ai::blocklist::{
-    BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
-    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelection,
-    ConversationStatusUpdate,
-};
-use crate::ai::get_relevant_files::controller::GetRelevantFilesController;
-use crate::banner::BannerState;
-use crate::terminal::event::AfterBlockCompletedEvent;
-use crate::terminal::local_tty::{
-    TerminalManager as LocalTtyTerminalManager, TerminalSurfaceInit, TerminalSurfaceResult,
-};
-use crate::terminal::model::session::active_session::ActiveSession;
-use crate::terminal::model::terminal_model::BlockIndex;
-use crate::terminal::shared_session::IsSharedSessionCreator;
-use crate::terminal::{
-    PtyIntent, PtyIntentEvent, ShellLaunchData, TerminalManager as TerminalManagerTrait,
-    TerminalModel, TerminalSurface,
-};
 
 struct PromptStreamHostView;
 
@@ -61,6 +47,8 @@ struct PromptStreamSurface {
     conversation_model: ModelHandle<TuiConversationModel>,
     last_output: String,
 }
+/// Event type for the prompt-stream terminal surface.
+struct PromptStreamEvent;
 
 /// Writes only the newly appended portion of a stream snapshot.
 fn write_stream_snapshot_delta<W: Write>(
@@ -257,7 +245,7 @@ impl PromptStreamSurface {
             );
             return;
         }
-        let mut stdout = std::io::stdout().lock();
+        let mut stdout = io::stdout().lock();
         if let Err(error) = write_stream_snapshot_delta(&mut self.last_output, &text, &mut stdout) {
             self.terminate_with_error(anyhow!("Failed to write TUI stream output: {error}"), ctx);
         }
@@ -270,10 +258,10 @@ impl PromptStreamSurface {
 }
 
 impl Entity for PromptStreamSurface {
-    type Event = ();
+    type Event = PromptStreamEvent;
 }
 
-impl PtyIntentEvent for () {
+impl PtyIntentEvent for PromptStreamEvent {
     fn pty_intent(&self) -> Option<PtyIntent> {
         None
     }
@@ -334,20 +322,6 @@ impl TypedActionView for PromptStreamSurface {
     type Action = ();
 }
 
-impl TerminalManagerTrait for LocalTtyTerminalManager<PromptStreamSurface> {
-    fn model(&self) -> std::sync::Arc<parking_lot::FairMutex<TerminalModel>> {
-        self.model()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
 struct PromptStreamSession {
     _manager: ModelHandle<Box<dyn TerminalManagerTrait>>,
     _surface: ViewHandle<PromptStreamSurface>,
@@ -381,7 +355,7 @@ fn start_prompt_stream(
         |_ctx| PromptStreamHostView,
     );
     let banner = ctx.add_model(|_| BannerState::default());
-    let terminal_manager = LocalTtyTerminalManager::<PromptStreamSurface>::create_model(
+    let terminal_manager = LocalTtyTerminalManager::<PromptStreamSurface>::create_tui_model(
         std::env::current_dir().ok(),
         std::env::vars_os().collect(),
         IsSharedSessionCreator::No,

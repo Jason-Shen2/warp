@@ -1,13 +1,9 @@
+use warp::tui_api::{
+    AIConversationAutoexecuteMode, AIConversationId, AgentViewDisplayMode, AgentViewEntryOrigin,
+    BlocklistAIHistoryEvent, BlocklistAIHistoryModel, ConversationSelection,
+    ConversationSelectionEvent, EnterAgentViewError, PendingQueryState,
+};
 use warpui::{AppContext, EntityId, ModelContext, SingletonEntity};
-
-use crate::ai::agent::conversation::{AIConversationAutoexecuteMode, AIConversationId};
-use crate::ai::blocklist::agent_view::{
-    AgentViewDisplayMode, AgentViewEntryOrigin, EnterAgentViewError,
-};
-use crate::ai::blocklist::conversation_selection::{
-    ConversationSelection, ConversationSelectionEvent,
-};
-use crate::ai::blocklist::{BlocklistAIHistoryEvent, BlocklistAIHistoryModel, PendingQueryState};
 
 /// TUI-owned next-prompt conversation selection.
 pub(super) struct TuiConversationSelection {

@@ -1,15 +1,13 @@
 //! Reusable per-surface TUI conversation coordination.
 
 use anyhow::anyhow;
-use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonEntity};
-
-use crate::ai::agent::api::ServerConversationToken;
-use crate::ai::agent::conversation::{AIConversationId, ConversationStatus};
-use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
-use crate::ai::blocklist::{
-    BlocklistAIController, BlocklistAIHistoryEvent, BlocklistAIHistoryModel,
-    ConversationSelectionEvent, ConversationSelectionHandle, ConversationStatusUpdate,
+use warp::tui_api::{
+    AIConversationId, AgentViewEntryOrigin, BlocklistAIController, BlocklistAIHistoryEvent,
+    BlocklistAIHistoryModel, CloudConversationData, ConversationSelectionEvent,
+    ConversationSelectionHandle, ConversationStatus, ConversationStatusUpdate,
+    ServerConversationToken,
 };
+use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonEntity};
 
 /// Events emitted by a TUI conversation model for presentation layers.
 #[derive(Clone, Debug)]
@@ -180,9 +178,7 @@ impl TuiConversationModel {
             history.load_conversation_by_server_token(&server_conversation_token, ctx)
         });
         ctx.spawn(future, move |model, conversation, ctx| {
-            let Some(crate::ai::blocklist::history_model::CloudConversationData::Oz(conversation)) =
-                conversation
-            else {
+            let Some(CloudConversationData::Oz(conversation)) = conversation else {
                 ctx.emit(TuiConversationModelEvent::Error {
                     message: format!(
                         "Failed to load conversation with server token {token_for_error}"

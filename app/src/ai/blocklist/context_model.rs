@@ -140,7 +140,7 @@ pub fn block_context_from_terminal_model(
 
 impl BlocklistAIContextModel {
     /// Creates pending context state for a terminal surface.
-    pub(crate) fn new(
+    pub fn new(
         sessions: ModelHandle<Sessions>,
         model_event_dispatcher: &ModelHandle<ModelEventDispatcher>,
         terminal_model: Arc<FairMutex<TerminalModel>>,

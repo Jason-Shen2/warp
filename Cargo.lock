@@ -15822,9 +15822,13 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "command",
+ "log",
+ "parking_lot",
+ "pathfinder_geometry",
  "warp",
  "warp_channel_config",
  "warp_core",
+ "warpui",
 ]
 
 [[package]]

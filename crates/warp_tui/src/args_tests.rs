@@ -1,5 +1,6 @@
+use warp::tui_api::ServerConversationToken;
+
 use super::TuiArgs;
-use crate::ai::agent::api::ServerConversationToken;
 
 /// Parses a prompt and server conversation token.
 #[test]

@@ -34,9 +34,13 @@ path = "src/bin/stable.rs"
 
 [dependencies]
 anyhow.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+pathfinder_geometry.workspace = true
 warp = { workspace = true, features = ["tui"] }
 warp_channel_config.workspace = true
 warp_core.workspace = true
+warpui.workspace = true
 
 # Process-level worker-dispatch regression test.
 [dev-dependencies]

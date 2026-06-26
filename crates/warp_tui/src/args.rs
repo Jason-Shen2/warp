@@ -1,6 +1,5 @@
 use anyhow::Result;
-
-use crate::ai::agent::api::ServerConversationToken;
+use warp::tui_api::ServerConversationToken;
 
 /// Arguments accepted by the TUI frontend after worker dispatch.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

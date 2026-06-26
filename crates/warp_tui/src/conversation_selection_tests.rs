@@ -1,16 +1,11 @@
-use warp_core::execution_mode::ExecutionMode;
+use warp::tui_api::{
+    AIConversationId, AgentViewEntryOrigin, BlocklistAIHistoryEvent, BlocklistAIHistoryModel,
+    ConversationSelection, ConversationSelectionHandle,
+};
+use warp_core::execution_mode::{AppExecutionMode, ExecutionMode};
 use warpui::{App, EntityId, ModelHandle};
 
 use super::TuiConversationSelection;
-use crate::ai::agent::conversation::AIConversationId;
-use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
-use crate::ai::blocklist::{
-    BlocklistAIHistoryEvent, BlocklistAIHistoryModel, ConversationSelection,
-    ConversationSelectionHandle,
-};
-use crate::test_util::settings::{
-    initialize_settings_for_tests, initialize_settings_for_tests_with_mode,
-};
 
 fn build_tui_selection(
     app: &mut App,
@@ -19,8 +14,8 @@ fn build_tui_selection(
     ConversationSelectionHandle,
     EntityId,
 ) {
-    initialize_settings_for_tests(app);
-    let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
+    app.add_singleton_model(|ctx| AppExecutionMode::new(ExecutionMode::App, false, ctx));
+    let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::default());
     let terminal_surface_id = EntityId::new();
     let selection = app.add_model(|ctx| {
         Box::new(TuiConversationSelection::new(terminal_surface_id, ctx))
@@ -131,8 +126,8 @@ fn tui_selection_reconciles_split_and_removed_selection() {
 #[test]
 fn tui_new_conversation_preserves_pending_autoexecute_override() {
     App::test((), |mut app| async move {
-        initialize_settings_for_tests_with_mode(&mut app, ExecutionMode::App, true);
-        let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
+        app.add_singleton_model(|ctx| AppExecutionMode::new(ExecutionMode::App, true, ctx));
+        let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::default());
         let terminal_surface_id = EntityId::new();
         let selection = app.add_model(|ctx| {
             Box::new(TuiConversationSelection::new(terminal_surface_id, ctx))

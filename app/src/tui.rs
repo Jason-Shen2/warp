@@ -1,33 +1,31 @@
 //! The headless `warp-tui` front-end's app-side entry point.
 //!
 //! The `warp_tui` crate boots the real headless Warp app via [`crate::run_tui`].
-//! After the shared app initialization and authentication flow complete, this
-//! module dispatches either one-shot prompt streaming or the default user-ID
-//! command.
+//! After shared app initialization and authentication complete, this module
+//! invokes the frontend callback supplied by `warp_tui`.
 
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 use warpui::platform::TerminationMode;
 use warpui::{AppContext, SingletonEntity};
 
 use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
 use crate::auth::AuthStateProvider;
-mod args;
-
-mod conversation_model;
-mod conversation_selection;
-mod prompt_stream;
-pub(crate) use args::TuiArgs;
+use crate::TuiFrontend;
 
 /// Entry point invoked from `run_internal` once the headless app is initialized.
 ///
 /// Authenticates the user when needed, then dispatches the requested TUI operation.
-pub(crate) fn init(args: TuiArgs, ctx: &mut AppContext) {
+pub(crate) fn init(frontend: TuiFrontend, ctx: &mut AppContext) {
     let auth_state = AuthStateProvider::as_ref(ctx).get();
     if auth_state.is_logged_in() {
-        finish_initialization(args, ctx);
+        finish_initialization(frontend, ctx);
         return;
     }
 
     println!("Welcome to Warp TUI. Let's get you logged in.");
+    let frontend = Arc::new(Mutex::new(Some(frontend)));
 
     // Reuses the same device-authorization flow as `oz login` (see
     // `app/src/ai/agent_sdk/admin.rs`). The browser handles login and control
@@ -56,7 +54,9 @@ pub(crate) fn init(args: TuiArgs, ctx: &mut AppContext) {
             ctx.open_url(url_to_open);
         }
         AuthManagerEvent::AuthComplete => {
-            finish_initialization(args.clone(), ctx);
+            if let Some(frontend) = frontend.lock().take() {
+                finish_initialization(frontend, ctx);
+            }
         }
         AuthManagerEvent::AuthFailed(err) => {
             ctx.terminate_app(
@@ -73,8 +73,8 @@ pub(crate) fn init(args: TuiArgs, ctx: &mut AppContext) {
 }
 
 /// Runs the requested TUI operation after authentication is ready.
-fn finish_initialization(args: TuiArgs, ctx: &mut AppContext) {
-    if !prompt_stream::start(args, ctx) {
+fn finish_initialization(frontend: TuiFrontend, ctx: &mut AppContext) {
+    if !frontend(ctx) {
         print_user_id_and_exit(ctx);
     }
 }
