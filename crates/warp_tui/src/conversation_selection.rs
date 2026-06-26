@@ -1,4 +1,4 @@
-use warp::tui_api::{
+use warp::tui_export::{
     AIConversationAutoexecuteMode, AIConversationId, AgentViewDisplayMode, AgentViewEntryOrigin,
     BlocklistAIHistoryEvent, BlocklistAIHistoryModel, ConversationSelection,
     ConversationSelectionEvent, EnterAgentViewError, PendingQueryState,

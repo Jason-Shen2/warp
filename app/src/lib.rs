@@ -84,6 +84,8 @@ mod tips;
 mod tracing;
 #[cfg(feature = "tui")]
 mod tui;
+#[cfg(feature = "tui")]
+pub mod tui_export;
 mod ui_components;
 mod undo_close;
 mod uri;
@@ -187,45 +189,6 @@ use crate::uri::web_intent_parser::maybe_rewrite_web_url_to_intent;
 use crate::view_components::DismissibleToast;
 pub mod workflows;
 pub mod workspace;
-
-/// App APIs used by the `warp_tui` frontend.
-#[cfg(feature = "tui")]
-pub mod tui_api {
-    pub use crate::ai::agent::api::ServerConversationToken;
-    pub use crate::ai::agent::conversation::{
-        AIConversationAutoexecuteMode, AIConversationId, ConversationStatus,
-    };
-    pub use crate::ai::agent::AIAgentTextSection;
-    pub use crate::ai::blocklist::agent_view::{
-        AgentViewDisplayMode, AgentViewEntryOrigin, EnterAgentViewError,
-    };
-    pub use crate::ai::blocklist::conversation_selection::{
-        ConversationSelection, ConversationSelectionEvent, ConversationSelectionHandle,
-        PendingQueryState,
-    };
-    pub use crate::ai::blocklist::history_model::{
-        BlocklistAIHistoryEvent, BlocklistAIHistoryModel, CloudConversationData,
-        ConversationStatusUpdate,
-    };
-    pub use crate::ai::blocklist::{
-        BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
-        BlocklistAIInputModel,
-    };
-    pub use crate::ai::get_relevant_files::controller::GetRelevantFilesController;
-    pub use crate::banner::BannerState;
-    pub use crate::terminal::event::AfterBlockCompletedEvent;
-    pub use crate::terminal::local_tty::{
-        TerminalManager as LocalTtyTerminalManager, TerminalManagerInit, TerminalSurfaceInit,
-        TerminalSurfaceResult,
-    };
-    pub use crate::terminal::model::session::active_session::ActiveSession;
-    pub use crate::terminal::model::terminal_model::BlockIndex;
-    pub use crate::terminal::shared_session::IsSharedSessionCreator;
-    pub use crate::terminal::{
-        PtyIntent, PtyIntentEvent, ShellLaunchData, TerminalManager as TerminalManagerTrait,
-        TerminalModel, TerminalSurface,
-    };
-}
 
 use std::borrow::Cow;
 use std::collections::HashSet;

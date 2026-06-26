@@ -1,7 +1,7 @@
 //! Reusable per-surface TUI conversation coordination.
 
 use anyhow::anyhow;
-use warp::tui_api::{
+use warp::tui_export::{
     AIConversationId, AgentViewEntryOrigin, BlocklistAIController, BlocklistAIHistoryEvent,
     BlocklistAIHistoryModel, CloudConversationData, ConversationSelectionEvent,
     ConversationSelectionHandle, ConversationStatus, ConversationStatusUpdate,

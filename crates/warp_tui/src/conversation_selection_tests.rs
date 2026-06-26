@@ -1,4 +1,4 @@
-use warp::tui_api::{
+use warp::tui_export::{
     AIConversationId, AgentViewEntryOrigin, BlocklistAIHistoryEvent, BlocklistAIHistoryModel,
     ConversationSelection, ConversationSelectionHandle,
 };

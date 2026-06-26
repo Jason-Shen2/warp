@@ -4,7 +4,7 @@ use std::io::{self, Write};
 
 use anyhow::anyhow;
 use pathfinder_geometry::vector::Vector2F;
-use warp::tui_api::{
+use warp::tui_export::{
     AIAgentTextSection, AIConversationId, ActiveSession, AfterBlockCompletedEvent, BannerState,
     BlockIndex, BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
     BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelection,

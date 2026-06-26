@@ -1,5 +1,5 @@
 use anyhow::Result;
-use warp::tui_api::ServerConversationToken;
+use warp::tui_export::ServerConversationToken;
 
 /// Arguments accepted by the TUI frontend after worker dispatch.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

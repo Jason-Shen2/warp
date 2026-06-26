@@ -1,4 +1,4 @@
-use warp::tui_api::ServerConversationToken;
+use warp::tui_export::ServerConversationToken;
 
 use super::TuiArgs;
 
