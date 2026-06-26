@@ -576,9 +576,7 @@ pub enum FeatureFlag {
     LocalComputerUse,
 
     /// Enables background, per-window computer use: driving a specific window directly without
-    /// raising it or moving the cursor. Off by default and manually enabled only (not in the
-    /// default/DOGFOOD/PREVIEW/RELEASE sets). When off, computer use behaves exactly like the
-    /// legacy full-screen path.
+    /// raising it or moving the cursor.  Currently only supported on macOS.
     BackgroundComputerUse,
 
     /// Enables team API key creation in the API key management UI.
@@ -965,6 +963,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::WarpControlCli,
     FeatureFlag::PromptCacheExpiryWarning,
     FeatureFlag::PinnedTabs,
+    FeatureFlag::BackgroundComputerUse,
     FeatureFlag::ContextWindowUsageBreakdown,
 ];
 
