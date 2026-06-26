@@ -27,9 +27,8 @@ fn build_tui_selection(
     initialize_settings_for_tests(app);
     let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
     let terminal_surface_id = EntityId::new();
-    let selection = app.add_model(|ctx| {
-        ConversationSelectionModel::new_for_tui_surface_with_history_test(terminal_surface_id, ctx)
-    });
+    let selection = app
+        .add_model(|ctx| ConversationSelectionModel::new_for_tui_surface(terminal_surface_id, ctx));
     (history, selection, terminal_surface_id)
 }
 

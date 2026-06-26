@@ -1,10 +1,7 @@
 //! Unit tests for [`BlocklistAIContextModel`].
 //!
-//! These tests deliberately bypass the production [`BlocklistAIContextModel::new`] constructor
-//! (which subscribes to several singletons) and instead use [`BlocklistAIContextModel::new_for_test`]
-//! together with [`super::agent_view::AgentViewController::new`]. That keeps the fixture small
-//! enough to focus on context logic without standing up `BlocklistAIHistoryModel`,
-//! `LLMPreferences`, `CloudModel`, `UpdateManager`, or `AppExecutionMode`.
+//! These tests use [`BlocklistAIContextModel::new_for_test`] to avoid unrelated context-model
+//! subscriptions while constructing conversation selection through its production constructors.
 
 use std::sync::Arc;
 
@@ -14,7 +11,7 @@ use repo_metadata::DirectoryWatcher;
 #[cfg(feature = "local_fs")]
 use warp_util::standardized_path::StandardizedPath;
 use warpui::r#async::executor::Background;
-use warpui::{App, EntityId, ModelHandle};
+use warpui::{App, EntityId, ModelHandle, SingletonEntity};
 
 use super::{BlocklistAIContextModel, PendingAttachment, PendingFile};
 use crate::ai::agent::conversation::AIConversationId;
@@ -111,6 +108,8 @@ fn repository_context_reads_github_repo_model() {
 /// Builds a [`BlocklistAIContextModel`] with stub dependencies. None of the dependencies are
 /// exercised by the methods under test; they only need to satisfy the struct's field types.
 fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextModel> {
+    initialize_history_persistence_for_tests(app);
+    app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
     let terminal_model = Arc::new(FairMutex::new(TerminalModel::new_for_test(
         block_size(),
         color::List::from(&Colors::default()),
@@ -132,10 +131,11 @@ fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextMode
             ephemeral_message_model,
         )
     });
-    let conversation_selection = app.add_model(|_| {
-        ConversationSelectionModel::new_for_terminal_view_test(
+    let conversation_selection = app.add_model(|ctx| {
+        ConversationSelectionModel::new_for_terminal_view(
             terminal_view_id,
             agent_view_controller,
+            ctx,
         )
     });
 
@@ -150,6 +150,8 @@ fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextMode
 
 /// Builds context state for a TUI conversation surface.
 fn build_tui_context_model(app: &mut App) -> (ModelHandle<BlocklistAIContextModel>, EntityId) {
+    initialize_history_persistence_for_tests(app);
+    app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
     let terminal_model = Arc::new(FairMutex::new(TerminalModel::new_for_test(
         block_size(),
         color::List::from(&Colors::default()),
@@ -163,7 +165,7 @@ fn build_tui_context_model(app: &mut App) -> (ModelHandle<BlocklistAIContextMode
     )));
     let terminal_surface_id = EntityId::new();
     let conversation_selection = app
-        .add_model(|_| ConversationSelectionModel::new_for_tui_surface_test(terminal_surface_id));
+        .add_model(|ctx| ConversationSelectionModel::new_for_tui_surface(terminal_surface_id, ctx));
     let model = app.add_model(|_| {
         BlocklistAIContextModel::new_for_test(
             terminal_model,
@@ -203,8 +205,8 @@ fn tui_context_tracks_selected_conversation() {
 #[test]
 fn tui_new_conversation_is_selected_and_terminal_surface_scoped() {
     App::test((), |mut app| async move {
-        let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
         let (model, terminal_surface_id) = build_tui_context_model(&mut app);
+        let history = BlocklistAIHistoryModel::handle(&app);
 
         let conversation_id = model
             .update(&mut app, |model, ctx| {
@@ -472,10 +474,8 @@ fn enqueue_moves_staged_attachments_onto_the_row_and_clears_input() {
     // staging and the drained set is stored on the queued row via `new_with_attachments`, leaving
     // no attachments behind in the input.
     App::test((), |mut app| async move {
-        initialize_history_persistence_for_tests(&mut app);
-        app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
-        let queued = app.add_singleton_model(QueuedQueryModel::new);
         let model = build_test_context_model(&mut app);
+        let queued = app.add_singleton_model(QueuedQueryModel::new);
         let conv = AIConversationId::new();
 
         model.update(&mut app, |m, _| {

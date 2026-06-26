@@ -38,11 +38,11 @@ impl PendingQueryState {
     }
 }
 
-#[cfg_attr(not(feature = "tui"), allow(dead_code))]
 enum ConversationSelectionBackend {
     TerminalView {
         agent_view_controller: ModelHandle<AgentViewController>,
     },
+    #[cfg(any(feature = "tui", test))]
     Tui,
 }
 
@@ -107,42 +107,8 @@ impl ConversationSelectionModel {
     }
 
     /// Creates conversation selection state for a TUI surface.
-    #[cfg(feature = "tui")]
+    #[cfg(any(feature = "tui", test))]
     pub(crate) fn new_for_tui_surface(
-        terminal_surface_id: EntityId,
-        ctx: &mut ModelContext<Self>,
-    ) -> Self {
-        Self::new(terminal_surface_id, ConversationSelectionBackend::Tui, ctx)
-    }
-
-    /// Creates conversation selection state without production subscriptions.
-    #[cfg(test)]
-    pub(crate) fn new_for_terminal_view_test(
-        terminal_surface_id: EntityId,
-        agent_view_controller: ModelHandle<AgentViewController>,
-    ) -> Self {
-        Self {
-            terminal_surface_id,
-            pending_query_state: PendingQueryState::default(),
-            backend: ConversationSelectionBackend::TerminalView {
-                agent_view_controller,
-            },
-        }
-    }
-
-    /// Creates TUI conversation selection state without production subscriptions.
-    #[cfg(test)]
-    pub(crate) fn new_for_tui_surface_test(terminal_surface_id: EntityId) -> Self {
-        Self {
-            terminal_surface_id,
-            pending_query_state: PendingQueryState::default(),
-            backend: ConversationSelectionBackend::Tui,
-        }
-    }
-
-    /// Creates TUI conversation selection state with production history subscriptions for tests.
-    #[cfg(test)]
-    pub(crate) fn new_for_tui_surface_with_history_test(
         terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
@@ -367,6 +333,7 @@ impl ConversationSelectionModel {
             ConversationSelectionBackend::TerminalView {
                 agent_view_controller,
             } => Some(agent_view_controller),
+            #[cfg(any(feature = "tui", test))]
             ConversationSelectionBackend::Tui => None,
         }
     }
