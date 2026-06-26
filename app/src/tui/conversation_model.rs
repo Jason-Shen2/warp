@@ -116,7 +116,9 @@ impl TuiConversationModel {
             None => match self.start_new_conversation(ctx) {
                 Ok(conversation_id) => conversation_id,
                 Err(error) => {
-                    self.emit_error(error, ctx);
+                    ctx.emit(TuiConversationModelEvent::Error {
+                        message: format!("{error:#}"),
+                    });
                     return;
                 }
             },
@@ -140,7 +142,9 @@ impl TuiConversationModel {
             .any(|conversation| conversation.id() == conversation_id);
         if is_live {
             if let Err(error) = self.select_conversation(conversation_id, ctx) {
-                self.emit_error(error, ctx);
+                ctx.emit(TuiConversationModelEvent::Error {
+                    message: format!("{error:#}"),
+                });
                 return;
             }
             self.send_prompt(prompt, ctx);
@@ -151,7 +155,9 @@ impl TuiConversationModel {
                 history.restore_conversations(self.terminal_surface_id, vec![conversation], ctx);
             });
             if let Err(error) = self.select_conversation(conversation_id, ctx) {
-                self.emit_error(error, ctx);
+                ctx.emit(TuiConversationModelEvent::Error {
+                    message: format!("{error:#}"),
+                });
                 return;
             }
             self.send_prompt(prompt, ctx);
@@ -165,17 +171,18 @@ impl TuiConversationModel {
             let Some(crate::ai::blocklist::history_model::CloudConversationData::Oz(conversation)) =
                 conversation
             else {
-                model.emit_error(
-                    anyhow!("Failed to load local conversation {conversation_id}"),
-                    ctx,
-                );
+                ctx.emit(TuiConversationModelEvent::Error {
+                    message: format!("Failed to load local conversation {conversation_id}"),
+                });
                 return;
             };
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                 history.restore_conversations(model.terminal_surface_id, vec![*conversation], ctx);
             });
             if let Err(error) = model.select_conversation(conversation_id, ctx) {
-                model.emit_error(error, ctx);
+                ctx.emit(TuiConversationModelEvent::Error {
+                    message: format!("{error:#}"),
+                });
                 return;
             }
             model.send_prompt(prompt, ctx);
@@ -218,13 +225,6 @@ impl TuiConversationModel {
             }),
             _ => {}
         }
-    }
-
-    /// Emits a presentation-safe model error.
-    fn emit_error(&self, error: anyhow::Error, ctx: &mut ModelContext<Self>) {
-        ctx.emit(TuiConversationModelEvent::Error {
-            message: format!("{error:#}"),
-        });
     }
 }
 
