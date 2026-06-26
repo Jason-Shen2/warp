@@ -106,8 +106,7 @@ impl TuiConversationModel {
     ) -> anyhow::Result<AIConversationId> {
         self.context_model
             .update(ctx, |context_model, ctx| {
-                context_model
-                    .try_enter_agent_view_for_new_conversation(AgentViewEntryOrigin::Cli, ctx)
+                context_model.try_start_new_conversation(AgentViewEntryOrigin::Cli, ctx)
             })
             .map_err(Into::into)
     }

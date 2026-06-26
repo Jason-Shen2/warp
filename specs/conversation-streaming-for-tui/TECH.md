@@ -26,6 +26,7 @@ Moving a conversation between surfaces emits `ConversationTransferredBetweenTerm
 ### One-shot prompt streaming
 `PromptStreamSurface` adapts `TuiConversationModel` events to stdout and application termination (`app/src/tui/prompt_stream.rs:57`). It is named for its actual behavior rather than as a test fixture.
 TUI initialization always completes authentication before dispatching either prompt streaming or the default user-ID command (`app/src/tui.rs:23`). Prompt streaming uses the normal local terminal-manager and PTY lifecycle; there is no surface-specific PTY startup switch.
+`PtySpawner` can safely use the standard terminal-server subprocess from a `warp-tui` executable. The TUI argument bridge recognizes Warp worker invocations and leaves their arguments untouched; `warp::run_tui()` dispatches them through the same worker runner used by `warp::run()` before starting the TUI frontend (`crates/warp_tui/src/bin/args.rs:11`, `app/src/lib.rs:631`). This lets TUI launches register the same early `PtySpawner` singleton as other Warp launches without recursively starting more TUI frontends, and preserves dispatch for other current-executable workers.
 The adapter prints the local conversation ID, changed plain-text snapshots, and final status. Tool actions fail clearly because this phase does not provide approval or action UI.
 ### Channel-specific binaries
 The `warp_tui` package mirrors GUI channel binaries. Every channel-specific binary uses the shared `src/bin/args.rs` module through a normal sibling `mod args;` declaration. Arguments are forwarded to headless app initialization:
@@ -57,6 +58,7 @@ Automated coverage verifies:
 - selecting a new conversation, restoring an existing conversation, and sending a follow-up retain the same local conversation ID
 - mock response-stream events flow through `BlocklistAIController` into filtered history/model events
 - every channel-specific TUI binary forwards prompt-streaming CLI arguments
+- Warp worker invocations bypass TUI prompt parsing and use the shared worker dispatcher
 Manual validation:
 - `cargo run -p warp_tui -- --prompt "Reply with exactly: hello from tui"` emits a local ID, streamed text, and `status=Success`
 - a separate process using that ID with `--conversation-id` restores the conversation and recalls the previous response

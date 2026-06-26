@@ -8,10 +8,12 @@ license.workspace = true
 autobins = false
 default-run = "warp-tui-oss"
 
-# One binary per channel, mirroring the GUI app's `app/src/bin/*` layout. The
-# OSS bin is the `default-run` so bare `cargo run -p warp_tui` builds without the
-# internal `warp-channel-config` generator; `./script/run-tui` selects the local
-# bin when the generator is available.
+# One binary per channel, mirroring the GUI app's `app/src/bin/*` layout.
+# `autobins = false` keeps `src/bin/args.rs` as their shared module rather than
+# treating it as another binary. The OSS bin is the `default-run` so bare
+# `cargo run -p warp_tui` builds without the internal `warp-channel-config`
+# generator; `./script/run-tui` selects the local bin when the generator is
+# available.
 [[bin]]
 name = "warp-tui-oss"
 path = "src/bin/oss.rs"
@@ -36,7 +38,12 @@ path = "src/bin/stable.rs"
 anyhow.workspace = true
 warp = { workspace = true, features = ["tui"] }
 warp_channel_config.workspace = true
+warp_cli.workspace = true
 warp_core.workspace = true
+
+# Process-level worker-dispatch regression test.
+[dev-dependencies]
+command.workspace = true
 
 [features]
 # Declared so the `warp_channel_config::load_config!` macro's

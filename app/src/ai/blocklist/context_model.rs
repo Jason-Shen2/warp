@@ -175,7 +175,7 @@ pub fn block_context_from_terminal_model(
 
 impl BlocklistAIContextModel {
     /// Creates context state for a GUI terminal view.
-    pub fn new_for_terminal_view(
+    pub(crate) fn new_for_terminal_view(
         sessions: ModelHandle<Sessions>,
         model_event_dispatcher: &ModelHandle<ModelEventDispatcher>,
         terminal_model: Arc<FairMutex<TerminalModel>>,
@@ -844,12 +844,8 @@ impl BlocklistAIContextModel {
         }
     }
 
-    /// Attempts to enter agent view for a new conversation and returns the conversation ID.
-    /// This should be used when a slash command needs to create a new conversation
-    /// and the AgentView feature flag is enabled.
-    ///
-    /// Returns `Ok(conversation_id)` on success, or `Err` if entry is blocked.
-    pub fn try_enter_agent_view_for_new_conversation(
+    /// Starts and selects a new conversation, entering Agent View when this is a GUI surface.
+    pub(crate) fn try_start_new_conversation(
         &mut self,
         origin: AgentViewEntryOrigin,
         ctx: &mut ModelContext<Self>,

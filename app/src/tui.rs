@@ -1,12 +1,9 @@
 //! The headless `warp-tui` front-end's app-side entry point.
 //!
-//! For this first step the TUI only proves out auth reuse. The `warp_tui` crate
-//! boots the real (headless) Warp app via [`crate::run_tui`], which runs the
-//! full `initialize_app` (so `AuthManager` and the auth state exist) and then
-//! calls [`init`]. [`init`] logs the user in when needed (reusing the OAuth
-//! device-authorization flow that `oz login` uses), auto-opens the browser,
-//! prints the authenticated user's ID, and exits. No terminal UI is rendered
-//! yet.
+//! The `warp_tui` crate boots the real headless Warp app via [`crate::run_tui`].
+//! After the shared app initialization and authentication flow complete, this
+//! module dispatches either one-shot prompt streaming or the default user-ID
+//! command.
 
 use warpui::platform::TerminationMode;
 use warpui::{AppContext, SingletonEntity};
@@ -19,10 +16,7 @@ mod prompt_stream;
 
 /// Entry point invoked from `run_internal` once the headless app is initialized.
 ///
-/// If the user is already logged in, prints their ID immediately. Otherwise it
-/// starts the OAuth device-authorization flow, opens the browser (printing the
-/// URL/code as a fallback), and prints the ID once login completes. Terminates
-/// the app when done.
+/// Authenticates the user when needed, then dispatches the requested TUI operation.
 pub fn init(ctx: &mut AppContext) {
     let auth_state = AuthStateProvider::as_ref(ctx).get();
     if auth_state.is_logged_in() {

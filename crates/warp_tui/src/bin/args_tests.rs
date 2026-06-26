@@ -1,5 +1,17 @@
-use super::{parse_args, TuiArgs};
+use super::{parse_args, should_forward_args, TuiArgs};
 
+#[test]
+fn forwards_frontend_args_but_not_worker_args() {
+    assert!(should_forward_args(&[
+        "--prompt".to_owned(),
+        "hello".to_owned()
+    ]));
+    assert!(!should_forward_args(&["minidump-server".to_owned()]));
+    #[cfg(unix)]
+    assert!(!should_forward_args(&[
+        warp_cli::terminal_server_subcommand()
+    ]));
+}
 #[test]
 fn parses_prompt_and_conversation_id() {
     assert_eq!(

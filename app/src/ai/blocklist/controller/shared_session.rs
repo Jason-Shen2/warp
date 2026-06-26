@@ -854,9 +854,7 @@ impl BlocklistAIController {
                     })
                     .or_else(|| {
                         self.context_model.update(ctx, |context_model, ctx| {
-                            context_model
-                                .try_enter_agent_view_for_new_conversation(origin, ctx)
-                                .ok()
+                            context_model.try_start_new_conversation(origin, ctx).ok()
                         })
                     })
                 else {

@@ -15821,8 +15821,10 @@ name = "warp_tui"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "command",
  "warp",
  "warp_channel_config",
+ "warp_cli",
  "warp_core",
 ]
 

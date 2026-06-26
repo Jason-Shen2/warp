@@ -60,7 +60,7 @@ struct PromptStreamSurface {
 }
 
 impl PromptStreamSurface {
-    /// Builds the conversation-capable surface from manager-owned terminal session handles.
+    /// Builds the conversation-capable surface from manager-provided terminal session handles.
     fn new(surface_init: TerminalSurfaceInit, ctx: &mut ViewContext<Self>) -> Self {
         let TerminalSurfaceInit {
             model,
@@ -336,7 +336,7 @@ pub(super) fn start_from_environment(ctx: &mut AppContext) -> bool {
     true
 }
 
-/// Builds a manager-owned terminal session and submits the prompt.
+/// Builds a manager-backed terminal session and submits the prompt.
 fn start_prompt_stream(
     prompt: String,
     conversation_id: Option<AIConversationId>,

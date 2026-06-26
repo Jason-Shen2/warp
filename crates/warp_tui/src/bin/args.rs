@@ -10,7 +10,12 @@ struct TuiArgs {
 
 /// Forwards TUI CLI arguments to the headless app initialization environment.
 pub(crate) fn forward_args_to_environment() -> Result<()> {
-    let args = parse_args(std::env::args().skip(1))?;
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if !should_forward_args(&args) {
+        return Ok(());
+    }
+
+    let args = parse_args(args)?;
     if let Some(prompt) = args.prompt {
         std::env::set_var(PROMPT_ENV, prompt);
     }
@@ -18,6 +23,13 @@ pub(crate) fn forward_args_to_environment() -> Result<()> {
         std::env::set_var(CONVERSATION_ID_ENV, conversation_id);
     }
     Ok(())
+}
+
+/// Returns whether arguments belong to the TUI frontend rather than a Warp worker.
+fn should_forward_args(args: &[String]) -> bool {
+    !args
+        .first()
+        .is_some_and(|arg| warp_cli::is_worker_invocation(arg))
 }
 
 /// Parses the arguments supported by every channel-specific TUI binary.

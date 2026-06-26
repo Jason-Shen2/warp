@@ -223,7 +223,7 @@ pub struct BlocklistAIInputModel {
 
 impl BlocklistAIInputModel {
     /// Creates input state for a GUI terminal view.
-    pub fn new_for_terminal_view(
+    pub(crate) fn new_for_terminal_view(
         model: Arc<FairMutex<TerminalModel>>,
         agent_view_controller: ModelHandle<AgentViewController>,
         ai_context_model: ModelHandle<BlocklistAIContextModel>,

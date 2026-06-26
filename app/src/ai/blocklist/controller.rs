@@ -430,7 +430,7 @@ impl BlocklistAIController {
 
     /// Creates a controller for a GUI terminal view.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_for_terminal_view(
+    pub(crate) fn new_for_terminal_view(
         input_model: ModelHandle<BlocklistAIInputModel>,
         context_model: ModelHandle<BlocklistAIContextModel>,
         action_model: ModelHandle<BlocklistAIActionModel>,

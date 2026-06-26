@@ -141,10 +141,8 @@ fn build_test_context_model(app: &mut App) -> ModelHandle<BlocklistAIContextMode
     })
 }
 
-/// Builds the controller-less context model owned by a TUI conversation surface.
-fn build_controllerless_context_model(
-    app: &mut App,
-) -> (ModelHandle<BlocklistAIContextModel>, EntityId) {
+/// Builds context state for a TUI conversation surface.
+fn build_tui_context_model(app: &mut App) -> (ModelHandle<BlocklistAIContextModel>, EntityId) {
     let terminal_model = Arc::new(FairMutex::new(TerminalModel::new_for_test(
         block_size(),
         color::List::from(&Colors::default()),
@@ -166,7 +164,7 @@ fn build_controllerless_context_model(
 #[test]
 fn tui_context_tracks_selected_conversation() {
     App::test((), |mut app| async move {
-        let (model, _) = build_controllerless_context_model(&mut app);
+        let (model, _) = build_tui_context_model(&mut app);
         let conversation_id = AIConversationId::new();
 
         model.update(&mut app, |model, ctx| {
@@ -193,11 +191,11 @@ fn tui_context_tracks_selected_conversation() {
 fn tui_new_conversation_is_selected_and_terminal_surface_scoped() {
     App::test((), |mut app| async move {
         let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
-        let (model, terminal_surface_id) = build_controllerless_context_model(&mut app);
+        let (model, terminal_surface_id) = build_tui_context_model(&mut app);
 
         let conversation_id = model
             .update(&mut app, |model, ctx| {
-                model.try_enter_agent_view_for_new_conversation(AgentViewEntryOrigin::Cli, ctx)
+                model.try_start_new_conversation(AgentViewEntryOrigin::Cli, ctx)
             })
             .expect("TUI conversation creation should succeed");
 
