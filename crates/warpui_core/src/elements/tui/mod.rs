@@ -34,6 +34,7 @@ mod event_handler;
 mod geometry;
 mod parent;
 mod text;
+mod viewported_list;
 
 pub use buffer::{Cell, Color, Modifier, TuiBuffer, TuiBufferExt, TuiStyle};
 pub use child_view::TuiChildView;
@@ -44,6 +45,10 @@ pub use event_handler::TuiEventHandler;
 pub use geometry::{TuiConstraint, TuiRect, TuiRectExt, TuiSize};
 pub use parent::TuiParentElement;
 pub use text::TuiText;
+pub use viewported_list::{
+    RenderedViewportItem, TuiViewportCursor, TuiViewportHandle, TuiViewportIndex,
+    TuiViewportIndexItem, TuiViewportIndexPosition, TuiViewportedList, ViewportRenderRequest,
+};
 
 /// Carries the pre-rendered per-view element map through the layout pass,
 /// mirroring the GUI's `LayoutContext`. [`TuiChildView`] uses it to look up
@@ -53,11 +58,36 @@ pub use text::TuiText;
 /// [`TuiChildView`]: crate::elements::tui::TuiChildView
 /// [`TuiPresenter::invalidate`]: crate::presenter::tui::TuiPresenter::invalidate
 pub struct TuiLayoutContext<'a> {
+    /// Read-only application access when layout is driven by a TUI view.
+    app: Option<&'a AppContext>,
     /// Pre-rendered elements keyed by view id, consumed during layout.
     pub rendered_views: &'a mut HashMap<EntityId, Box<dyn TuiElement>>,
 }
 
 impl<'a> TuiLayoutContext<'a> {
+    /// Creates a layout context without application access.
+    pub fn new(rendered_views: &'a mut HashMap<EntityId, Box<dyn TuiElement>>) -> Self {
+        Self {
+            app: None,
+            rendered_views,
+        }
+    }
+
+    /// Creates a layout context with read-only application access.
+    pub fn with_app(
+        app: &'a AppContext,
+        rendered_views: &'a mut HashMap<EntityId, Box<dyn TuiElement>>,
+    ) -> Self {
+        Self {
+            app: Some(app),
+            rendered_views,
+        }
+    }
+
+    /// Returns the read-only application context, when available.
+    pub fn app(&self) -> Option<&'a AppContext> {
+        self.app
+    }
     /// Temporarily removes the element for `view_id` from `rendered_views`,
     /// passes it (along with `self`) to `f`, then returns it. Mirrors the
     /// GUI's `LayoutContext::layout` / `PaintContext::paint` /

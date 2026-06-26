@@ -36,9 +36,7 @@ fn invokes_callback_on_matching_key_and_reports_handled() {
             let area = TuiRect::new(0, 0, 4, 1);
             let mut event_ctx = TuiEventContext::default();
             let mut rendered_views = HashMap::new();
-            let mut ctx = TuiLayoutContext {
-                rendered_views: &mut rendered_views,
-            };
+            let mut ctx = TuiLayoutContext::new(&mut rendered_views);
 
             let handled = handler.dispatch_event(
                 &key_event("enter"),
@@ -77,9 +75,7 @@ fn child_consumes_the_event_before_the_wrapper() {
 
             let mut event_ctx = TuiEventContext::default();
             let mut rendered_views = HashMap::new();
-            let mut ctx = TuiLayoutContext {
-                rendered_views: &mut rendered_views,
-            };
+            let mut ctx = TuiLayoutContext::new(&mut rendered_views);
             let handled = outer.dispatch_event(
                 &key_event("enter"),
                 TuiRect::new(0, 0, 1, 1),

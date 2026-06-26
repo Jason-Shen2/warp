@@ -37,14 +37,20 @@ anyhow.workspace = true
 log.workspace = true
 parking_lot.workspace = true
 pathfinder_geometry.workspace = true
+sum_tree.workspace = true
 warp = { workspace = true, features = ["tui"] }
 warp_channel_config.workspace = true
 warp_core.workspace = true
+warp_terminal.workspace = true
 warpui.workspace = true
+warpui_core.workspace = true
 
 # Process-level worker-dispatch regression test.
 [dev-dependencies]
 command.workspace = true
+pathfinder_color.workspace = true
+warp = { workspace = true, features = ["tui_test_support"] }
+warp_core = { workspace = true, features = ["test-util"] }
 
 [features]
 # Declared so the `warp_channel_config::load_config!` macro's

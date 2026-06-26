@@ -165,10 +165,10 @@ impl TuiPresenter {
             return TuiFrame::blank(area);
         };
 
-        let mut layout_ctx = TuiLayoutContext {
-            rendered_views: &mut self.rendered_views,
+        let arranged = {
+            let mut layout_ctx = TuiLayoutContext::with_app(ctx, &mut self.rendered_views);
+            arrange(element.as_mut(), area, &mut layout_ctx)
         };
-        let arranged = arrange(element.as_mut(), area, &mut layout_ctx);
 
         let mut embeddings = HashMap::new();
         {
@@ -181,7 +181,13 @@ impl TuiPresenter {
         }
         ctx.report_view_embeddings(window_id, embeddings);
 
-        let frame = paint(element.as_ref(), arranged, area, &mut self.rendered_views);
+        let frame = paint(
+            element.as_ref(),
+            arranged,
+            area,
+            ctx,
+            &mut self.rendered_views,
+        );
         self.last_element = Some(element);
         frame
     }
@@ -193,11 +199,9 @@ impl TuiPresenter {
     /// recorded and no `rendered_views` state is consulted or updated.
     pub fn present_element(&mut self, mut root: Box<dyn TuiElement>, area: TuiRect) -> TuiFrame {
         let mut empty_views = HashMap::new();
-        let mut layout_ctx = TuiLayoutContext {
-            rendered_views: &mut empty_views,
-        };
+        let mut layout_ctx = TuiLayoutContext::new(&mut empty_views);
         let arranged = arrange(root.as_mut(), area, &mut layout_ctx);
-        paint(root.as_ref(), arranged, area, &mut empty_views)
+        paint_without_app(root.as_ref(), arranged, area, &mut empty_views)
     }
 
     /// Returns a mutable reference to the root element from the last
@@ -229,10 +233,29 @@ fn paint(
     root: &dyn TuiElement,
     arranged: TuiRect,
     area: TuiRect,
+    app: &AppContext,
     rendered_views: &mut HashMap<EntityId, Box<dyn TuiElement>>,
 ) -> TuiFrame {
     let mut buffer = TuiBuffer::empty(buffer_rect_for(area));
-    let mut ctx = TuiLayoutContext { rendered_views };
+    let mut ctx = TuiLayoutContext::with_app(app, rendered_views);
+    root.render(arranged, &mut buffer, &mut ctx);
+
+    let cursor = root
+        .cursor_position(arranged, &mut ctx)
+        .map(|(x, y)| (arranged.x.saturating_add(x), arranged.y.saturating_add(y)));
+
+    TuiFrame { buffer, cursor }
+}
+
+/// Paints an element tree that does not need application-backed layout access.
+fn paint_without_app(
+    root: &dyn TuiElement,
+    arranged: TuiRect,
+    area: TuiRect,
+    rendered_views: &mut HashMap<EntityId, Box<dyn TuiElement>>,
+) -> TuiFrame {
+    let mut buffer = TuiBuffer::empty(buffer_rect_for(area));
+    let mut ctx = TuiLayoutContext::new(rendered_views);
     root.render(arranged, &mut buffer, &mut ctx);
 
     let cursor = root

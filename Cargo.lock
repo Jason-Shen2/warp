@@ -15824,11 +15824,15 @@ dependencies = [
  "command",
  "log",
  "parking_lot",
+ "pathfinder_color",
  "pathfinder_geometry",
+ "sum_tree",
  "warp",
  "warp_channel_config",
  "warp_core",
+ "warp_terminal",
  "warpui",
+ "warpui_core",
 ]
 
 [[package]]

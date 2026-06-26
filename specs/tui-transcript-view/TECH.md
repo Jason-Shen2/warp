@@ -7,7 +7,7 @@ Bare `warp-tui` launches a real TUI root column containing the transcript view. 
 
 Rich block content, interactive block affordances, and the full TUI input experience are outside this PR. Those features must extend the block-render boundary established here rather than alter the transcript container or introduce a TUI-specific blocklist.
 
-The existing TUI conversation-streaming stack already routes prompts through the production AI controller and exposes terminal-surface-filtered presentation events. [`TuiConversationModel`](https://github.com/warpdotdev/warp/blob/e36e8ddf823d6a25a5225251a7db60698f5da74d/app/src/tui/conversation_model.rs#L41-L243) deliberately contains no transcript widgets; [`PromptStreamSurface`](https://github.com/warpdotdev/warp/blob/e36e8ddf823d6a25a5225251a7db60698f5da74d/app/src/tui/prompt_stream.rs#L59-L281) is a one-shot stdout adapter, not the interactive transcript presentation layer. The foundational selection, request, and terminal-surface ownership decisions remain as documented in [`specs/conversation-streaming-for-tui/TECH.md`](../conversation-streaming-for-tui/TECH.md).
+The existing TUI conversation-streaming stack already routes prompts through the production AI controller and exposes terminal-surface-filtered presentation events. `crates/warp_tui/src/conversation_model.rs` deliberately contains no transcript widgets; `crates/warp_tui/src/prompt_stream.rs` is a one-shot stdout adapter, not the interactive transcript presentation layer. The foundational selection, request, and terminal-surface ownership decisions remain as documented in [`specs/conversation-streaming-for-tui/TECH.md`](../conversation-streaming-for-tui/TECH.md).
 
 WarpUI already has a TUI-specific element/view/presenter stack. [`TuiElement`](https://github.com/warpdotdev/warp/blob/e36e8ddf823d6a25a5225251a7db60698f5da74d/crates/warpui_core/src/elements/tui/mod.rs#L96-L140) defines the normal layout, rendering, presentation, event, and cursor lifecycle, while [`TuiPresenter`](https://github.com/warpdotdev/warp/blob/e36e8ddf823d6a25a5225251a7db60698f5da74d/crates/warpui_core/src/presenter/tui.rs#L81-L208) retains laid-out trees and records child-view embeddings. The transcript must return normal visible `TuiElement` trees so this lifecycle remains intact; it must not use a context-free raw-buffer row renderer.
 
@@ -16,7 +16,7 @@ WarpUI already has a TUI-specific element/view/presenter stack. [`TuiElement`](h
 The TUI transcript will use this existing order. It will not own a second transcript order or introduce a `TUIBlocklistElement`.
 ## Proposed changes
 ### TUI transcript composition root
-Change the no-prompt TUI initialization path in `app/src/tui.rs`: after authentication, bare `warp-tui` starts a real TUI session instead of printing the authenticated user ID and exiting. `warp-tui --prompt ...` continues using the existing one-shot `PromptStreamSurface` stdout behavior.
+Change the no-prompt TUI frontend callback in `crates/warp_tui/src/lib.rs`: after app-side authentication, bare `warp-tui` starts a real TUI session instead of printing the authenticated user ID and exiting. `warp-tui --prompt ...` continues using the existing one-shot `PromptStreamSurface` stdout behavior.
 
 Add a root TUI view whose rendered tree is initially only:
 ```rust
@@ -25,7 +25,7 @@ TuiColumn::new().with_child(Box::new(TuiChildView::new(&transcript_view)))
 
 The root is also the `TerminalSurface` driven by the normal local terminal manager so its transcript reads the same `TerminalModel` that receives shell output. Keep the manager, root view, and TUI runtime/driver alive in a TUI-session singleton.
 
-The current WarpUI TUI runtime has a blocking `TuiRuntime`, but the app-owned TUI initialization runs inside the shared app event loop. Add an invalidation-driven headless driver entry point under `crates/warpui_core/src/runtime/` that:
+The current WarpUI TUI runtime has a blocking `TuiRuntime`, but the `warp_tui` frontend callback runs inside the shared app event loop. Add an invalidation-driven headless driver entry point under `crates/warpui_core/src/runtime/` that:
 - enters and restores raw mode plus the alternate screen through an owned guard
 - draws the root view when its window is invalidated
 - reads crossterm input off the foreground thread and dispatches converted events through the shared core
@@ -34,7 +34,7 @@ The current WarpUI TUI runtime has a blocking `TuiRuntime`, but the app-owned TU
 This is runtime plumbing for the real TUI composition root, not transcript-specific behavior.
 
 ### Isolated preview shim
-Add one clearly named, self-contained preview module under `app/src/tui/`, attached at one call site in the transcript root. Until the real input view lands, it handles exactly two keys:
+Add one clearly named, self-contained preview module under `crates/warp_tui/src/`, attached at one call site in the transcript root. Until the real input view lands, it handles exactly two keys:
 - `s` emits the existing terminal command-execution intent for `echo 1`
 - `a` submits the fixed prompt `hello world` through `TuiConversationModel`
 
@@ -97,7 +97,7 @@ Viewport scroll state is either:
 - `FollowBottom`
 - `Anchored { item_id, row_offset }`
 
-The initial state is `FollowBottom`. User scrolling away from the end produces a stable item/row anchor; an explicit End/follow-bottom action restores `FollowBottom`. Anchored item shrink clamps the row offset. Anchored item removal falls forward to the next ordered item when possible, otherwise backward to the previous/end item. Clear/reset restores `FollowBottom`.
+The initial state is `FollowBottom`. User scrolling away from the end produces a stable item/row anchor; an explicit End/follow-bottom action restores `FollowBottom`. Anchored item shrink clamps the row offset. If an anchored item no longer exists, the viewport safely returns to `FollowBottom`. Clear/reset also restores `FollowBottom`.
 
 Each ordered-index descriptor carries a cached or estimated height and whether a view-measured height is dirty. The viewport measures only visible dirty items. Model-authoritative terminal blocks do not report height feedback; view-measured agent blocks report their full logical height separately from their visible slice element.
 
@@ -106,7 +106,7 @@ The viewport batches changed heights and applies them through the index adapter 
 Only currently visible outer-item element trees participate in presentation, rendering, event dispatch, and cursor resolution. Fully off-screen child views are not presented or dispatched to.
 
 ### Terminal history index
-Add a `TerminalHistoryIndex` adapter under `app/src/tui/` over the canonical `TerminalModel::BlockList` sum tree.
+Add a `TerminalHistoryIndex` adapter under `crates/warp_tui/src/` over the canonical `TerminalModel::BlockList` sum tree.
 
 The adapter maps canonical entries to owned TUI transcript descriptors:
 ```rust
@@ -129,14 +129,15 @@ The adapter uses one scoped sum-tree traversal to seek and walk ordered entries.
 
 `TerminalHistoryIndex` collects owned descriptors while holding the terminal-model lock, releases that lock, and only then permits the viewport to invoke the item-render function. Generic view-measured height updates are batched and written back into rich-content heights under one short lock.
 
-Small `pub(crate)` `BlockList` helpers may be added where required to seek rich-content positions and read/update dirty rich-content height state without exposing broader model internals.
+Small public `BlockList` helpers may be added where required to seek rich-content positions and read/update dirty rich-content height state. The `warp_tui` crate accesses those helpers and other app-owned model types only through the narrow `warp::tui_export` boundary.
 
 ### Transcript view and exchange lifecycle
-Add a TUI transcript view under `app/src/tui/` that owns the generalized viewport state and the terminal-history integration. The root TUI view embeds it as its only column child in this PR. It subscribes to terminal-surface-scoped `BlocklistAIHistoryEvent`s and mirrors the existing GUI model-level lifecycle:
+Add a TUI transcript view under `crates/warp_tui/src/` that owns the generalized viewport state and the terminal-history integration. The root TUI view embeds it as its only column child in this PR. It subscribes to terminal-surface-scoped `BlocklistAIHistoryEvent`s and mirrors the existing GUI model-level lifecycle:
 - `AppendedExchange` creates a simple TUI agent block view and inserts one `RichContentItem` into the canonical `BlockList`.
 - `UpdatedStreamingExchange` invalidates the corresponding agent block's content/height and notifies the transcript.
 - `ReassignedExchange` updates the block's conversation association.
 - removal, deletion, clear, and transfer events remove the affected TUI agent rich-content entries.
+TUI agent rich-content entries intentionally leave `agent_view_conversation_id` unset. That field encodes GUI Agent View filtering; setting it while the TUI block list remains in `AgentViewState::Inactive` causes the shared `BlockList` height-update path to hide the entry. The TUI transcript keeps its conversation/exchange association in its own registration map while retaining canonical outer ordering in `BlockList`.
 
 The transcript renders `TerminalHistoryIndex` through an injected item-render function:
 ```rust
@@ -159,7 +160,7 @@ TuiViewportedList::new(index, move |request, app| {
 ```
 
 ### Simple terminal block
-Add a simple terminal-block renderer under `app/src/tui/`. It renders only the requested visible rows from the block's prompt/command grid followed by its output grid. The renderer reads/copies the required grid data under a short terminal-model lock and performs TUI element rendering after the lock is released.
+Add a simple terminal-block renderer under `crates/warp_tui/src/`. It renders only the requested visible rows from the block's prompt/command grid followed by its output grid. The renderer reads/copies the required grid data under a short terminal-model lock and performs TUI element rendering after the lock is released.
 
 The renderer preserves terminal cell glyphs and styles and supports incremental output because terminal block heights and grid contents are already updated by `TerminalModel`.
 
@@ -204,7 +205,7 @@ Add unit tests alongside the generalized viewport element using fake ordered ind
 - non-converging height feedback is bounded and diagnosable
 
 ### Block renderer tests
-Add focused app-crate unit tests:
+Add focused `warp_tui` crate unit tests:
 - agent block renders user input and incremental streamed plain-text output
 - agent block reports width-dependent full height and returns only requested visible rows
 - terminal block renders command/input followed by incremental output

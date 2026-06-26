@@ -15,9 +15,7 @@ use crate::{App, EntityId, Event};
 fn render_to_lines(element: &dyn TuiElement, size: TuiSize) -> Vec<String> {
     let mut buffer = TuiBuffer::empty(TuiRect::new(0, 0, size.width, size.height));
     let mut rendered_views = HashMap::new();
-    let mut ctx = TuiLayoutContext {
-        rendered_views: &mut rendered_views,
-    };
+    let mut ctx = TuiLayoutContext::new(&mut rendered_views);
     element.render(
         TuiRect::new(0, 0, size.width, size.height),
         &mut buffer,
@@ -33,9 +31,7 @@ fn stacks_two_children_top_to_bottom() {
         .with_child(Box::new(TuiText::new("BB")));
 
     let mut rendered_views = HashMap::new();
-    let mut ctx = TuiLayoutContext {
-        rendered_views: &mut rendered_views,
-    };
+    let mut ctx = TuiLayoutContext::new(&mut rendered_views);
     let size = column.layout(TuiConstraint::loose(TuiSize::new(2, 10)), &mut ctx);
     assert_eq!(size, TuiSize::new(2, 2));
 
@@ -55,9 +51,7 @@ fn sums_multi_row_children_at_the_correct_offsets() {
 
     // Layout must be called before render so TuiColumn.child_sizes is populated.
     let mut rendered_views = HashMap::new();
-    let mut ctx = TuiLayoutContext {
-        rendered_views: &mut rendered_views,
-    };
+    let mut ctx = TuiLayoutContext::new(&mut rendered_views);
     let size = column.layout(TuiConstraint::loose(TuiSize::new(2, 4)), &mut ctx);
     assert_eq!(size, TuiSize::new(2, 4));
     assert_eq!(
@@ -75,9 +69,7 @@ fn clamps_total_height_to_the_constraint_and_clips_overflow() {
 
     // Layout populates child_sizes; render and dispatch rely on them.
     let mut rendered_views = HashMap::new();
-    let mut ctx = TuiLayoutContext {
-        rendered_views: &mut rendered_views,
-    };
+    let mut ctx = TuiLayoutContext::new(&mut rendered_views);
     let size = column.layout(
         TuiConstraint::new(TuiSize::ZERO, TuiSize::new(2, 3)),
         &mut ctx,
@@ -152,9 +144,7 @@ fn dispatch_event_offers_children_in_order_and_stops_when_handled() {
             // Layout must run before dispatch so TuiColumn.child_sizes is populated.
             let mut event_ctx = TuiEventContext::default();
             let mut rendered_views = HashMap::new();
-            let mut ctx = TuiLayoutContext {
-                rendered_views: &mut rendered_views,
-            };
+            let mut ctx = TuiLayoutContext::new(&mut rendered_views);
             column.layout(TuiConstraint::loose(TuiSize::new(10, 5)), &mut ctx);
             let handled = column.dispatch_event(
                 &key_event("x"),

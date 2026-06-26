@@ -727,6 +727,10 @@ pub struct AppContext {
 }
 
 impl AppContext {
+    /// Returns a weak handle to the owning application.
+    pub(crate) fn weak_app(&self) -> rc::Weak<RefCell<Self>> {
+        self.weak_self.clone()
+    }
     pub(crate) fn new(
         platform_delegate: Box<dyn platform::Delegate>,
         window_manager: Box<dyn platform::WindowManager>,
@@ -1083,10 +1087,10 @@ impl AppContext {
             });
     }
 
-    /// Subscribes to a [`ViewHandle`] for changes, calling `callback` with the emitted event whenever the view is invalidated.
+    /// Subscribes to a GUI or TUI [`ViewHandle`] for emitted events.
     pub fn subscribe_to_view<S, F>(&mut self, handle: &ViewHandle<S>, mut callback: F)
     where
-        S: View,
+        S: Entity,
         S::Event: 'static,
         F: 'static + FnMut(ViewHandle<S>, &S::Event, &mut AppContext),
     {
