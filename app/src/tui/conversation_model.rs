@@ -3,6 +3,7 @@
 use anyhow::anyhow;
 use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonEntity};
 
+use crate::ai::agent::api::ServerConversationToken;
 use crate::ai::agent::conversation::{AIConversationId, ConversationStatus};
 use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
 use crate::ai::blocklist::{
@@ -128,54 +129,68 @@ impl TuiConversationModel {
         });
     }
 
-    /// Restores, selects, and sends a prompt to an existing conversation.
-    pub(super) fn restore_conversation_and_send_prompt(
+    /// Restores, selects, and sends a prompt to a conversation identified by its server token.
+    pub(super) fn restore_conversation_by_server_token_and_send_prompt(
         &mut self,
         prompt: String,
-        conversation_id: AIConversationId,
+        server_conversation_token: ServerConversationToken,
         ctx: &mut ModelContext<Self>,
     ) {
         let history = BlocklistAIHistoryModel::handle(ctx);
-        let is_live = history
+        if let Some(conversation_id) = history
             .as_ref(ctx)
-            .all_live_conversations_for_terminal_surface(self.terminal_surface_id)
-            .any(|conversation| conversation.id() == conversation_id);
-        if is_live {
-            if let Err(error) = self.select_conversation(conversation_id, ctx) {
-                ctx.emit(TuiConversationModelEvent::Error {
-                    message: format!("{error:#}"),
-                });
+            .find_conversation_id_by_server_token(&server_conversation_token)
+        {
+            let is_live = history
+                .as_ref(ctx)
+                .all_live_conversations_for_terminal_surface(self.terminal_surface_id)
+                .any(|conversation| conversation.id() == conversation_id);
+            if is_live {
+                if let Err(error) = self.select_conversation(conversation_id, ctx) {
+                    ctx.emit(TuiConversationModelEvent::Error {
+                        message: format!("{error:#}"),
+                    });
+                    return;
+                }
+                self.send_prompt(prompt, ctx);
                 return;
             }
-            self.send_prompt(prompt, ctx);
-            return;
-        }
-        if let Some(conversation) = history.as_ref(ctx).conversation(&conversation_id).cloned() {
-            history.update(ctx, |history, ctx| {
-                history.restore_conversations(self.terminal_surface_id, vec![conversation], ctx);
-            });
-            if let Err(error) = self.select_conversation(conversation_id, ctx) {
-                ctx.emit(TuiConversationModelEvent::Error {
-                    message: format!("{error:#}"),
+            if let Some(conversation) = history.as_ref(ctx).conversation(&conversation_id).cloned()
+            {
+                history.update(ctx, |history, ctx| {
+                    history.restore_conversations(
+                        self.terminal_surface_id,
+                        vec![conversation],
+                        ctx,
+                    );
                 });
+                if let Err(error) = self.select_conversation(conversation_id, ctx) {
+                    ctx.emit(TuiConversationModelEvent::Error {
+                        message: format!("{error:#}"),
+                    });
+                    return;
+                }
+                self.send_prompt(prompt, ctx);
                 return;
             }
-            self.send_prompt(prompt, ctx);
-            return;
         }
 
-        let future = history
-            .as_ref(ctx)
-            .load_conversation_data(conversation_id, ctx);
+        let token_for_error = server_conversation_token.as_str().to_owned();
+        let future = history.update(ctx, |history, ctx| {
+            history.load_conversation_by_server_token(&server_conversation_token, ctx)
+        });
         ctx.spawn(future, move |model, conversation, ctx| {
             let Some(crate::ai::blocklist::history_model::CloudConversationData::Oz(conversation)) =
                 conversation
             else {
                 ctx.emit(TuiConversationModelEvent::Error {
-                    message: format!("Failed to load local conversation {conversation_id}"),
+                    message: format!(
+                        "Failed to load conversation with server token {token_for_error}"
+                    ),
                 });
                 return;
             };
+            let conversation_id = conversation.id();
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
                 history.restore_conversations(model.terminal_surface_id, vec![*conversation], ctx);
             });

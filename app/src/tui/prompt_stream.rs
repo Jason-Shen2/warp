@@ -13,6 +13,7 @@ use warpui::{
 
 use super::args::TuiArgs;
 use super::conversation_model::{TuiConversationModel, TuiConversationModelEvent};
+use crate::ai::agent::api::ServerConversationToken;
 use crate::ai::agent::conversation::AIConversationId;
 use crate::ai::agent::AIAgentTextSection;
 use crate::ai::blocklist::{
@@ -137,12 +138,16 @@ impl PromptStreamSurface {
     fn submit_prompt(
         &mut self,
         prompt: String,
-        conversation_id: Option<AIConversationId>,
+        server_conversation_token: Option<ServerConversationToken>,
         ctx: &mut ViewContext<Self>,
     ) {
         self.conversation_model.update(ctx, |model, ctx| {
-            if let Some(conversation_id) = conversation_id {
-                model.restore_conversation_and_send_prompt(prompt, conversation_id, ctx);
+            if let Some(server_conversation_token) = server_conversation_token {
+                model.restore_conversation_by_server_token_and_send_prompt(
+                    prompt,
+                    server_conversation_token,
+                    ctx,
+                );
             } else {
                 model.send_prompt(prompt, ctx);
             }
@@ -161,7 +166,7 @@ impl PromptStreamSurface {
                 self.last_output.clear();
             }
             TuiConversationModelEvent::ConversationStarted { conversation_id } => {
-                println!("conversation_id={conversation_id}");
+                let _ = conversation_id;
             }
             TuiConversationModelEvent::ConversationUpdated { conversation_id } => {
                 self.print_stream_snapshot(*conversation_id, ctx);
@@ -173,6 +178,12 @@ impl PromptStreamSurface {
             } => {
                 self.print_stream_snapshot(*conversation_id, ctx);
                 if !status.is_in_progress() {
+                    if let Some(server_conversation_token) = BlocklistAIHistoryModel::as_ref(ctx)
+                        .conversation(conversation_id)
+                        .and_then(|conversation| conversation.server_conversation_token())
+                    {
+                        println!("conversation_id={}", server_conversation_token.as_str());
+                    }
                     println!("status={status:?}");
                     ctx.terminate_app(TerminationMode::ForceTerminate, None);
                 }
@@ -186,7 +197,6 @@ impl PromptStreamSurface {
             }
         }
     }
-
     /// Prints the latest plain-text output when it changes.
     fn print_stream_snapshot(
         &mut self,
@@ -329,14 +339,14 @@ pub(super) fn start(args: TuiArgs, ctx: &mut AppContext) -> bool {
     let Some(prompt) = args.prompt else {
         return false;
     };
-    start_prompt_stream(prompt, args.conversation_id, ctx);
+    start_prompt_stream(prompt, args.server_conversation_token, ctx);
     true
 }
 
 /// Builds a manager-backed terminal session and submits the prompt.
 fn start_prompt_stream(
     prompt: String,
-    conversation_id: Option<AIConversationId>,
+    server_conversation_token: Option<ServerConversationToken>,
     ctx: &mut AppContext,
 ) {
     let (window_id, _) = ctx.add_window(
@@ -372,7 +382,7 @@ fn start_prompt_stream(
     let manager = terminal_manager.manager;
     let surface = terminal_manager.surface;
     surface.update(ctx, |surface, ctx| {
-        surface.submit_prompt(prompt, conversation_id, ctx);
+        surface.submit_prompt(prompt, server_conversation_token, ctx);
     });
     ctx.add_singleton_model(|_| PromptStreamSession {
         _manager: manager,

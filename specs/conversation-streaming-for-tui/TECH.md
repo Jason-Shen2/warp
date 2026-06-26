@@ -26,16 +26,16 @@ Moving a conversation between surfaces emits `ConversationTransferredBetweenTerm
 - restore and selection of an existing conversation
 - prompt submission through `BlocklistAIController`
 - terminal-surface-filtered history events for conversation start, stream updates, status changes, selection changes, and errors
-`send_prompt(...)` targets the current selection or creates a conversation when none is selected. `restore_conversation_and_send_prompt(...)` restores and selects a supplied conversation ID before delegating to `send_prompt(...)` (`app/src/tui/conversation_model.rs:116`).
+`send_prompt(...)` targets the current selection or creates a conversation when none is selected. `restore_conversation_by_server_token_and_send_prompt(...)` resolves a supplied server conversation token to the canonical local conversation ID, restores and selects that conversation, then delegates to `send_prompt(...)` (`app/src/tui/conversation_model.rs`).
 ### One-shot prompt streaming
 `PromptStreamSurface` adapts `TuiConversationModel` events to stdout and application termination (`app/src/tui/prompt_stream.rs:57`). It is named for its actual behavior rather than as a test fixture.
 TUI initialization always completes authentication before dispatching either prompt streaming or the default user-ID command (`app/src/tui.rs:23`). Prompt streaming uses the normal local terminal-manager and PTY lifecycle; there is no surface-specific PTY startup switch.
 `PtySpawner` can safely use the standard terminal-server subprocess from a `warp-tui` executable. `warp::run_tui()` dispatches Warp worker invocations through the same worker runner used by `warp::run()` before starting the TUI frontend (`app/src/lib.rs:631`). Only non-worker invocations reach app-owned TUI frontend argument parsing (`app/src/tui/args.rs:5`). This lets TUI launches register the same early `PtySpawner` singleton as other Warp launches without recursively starting more TUI frontends, and preserves dispatch for other current-executable workers.
-The adapter prints the local conversation ID, changed plain-text snapshots, and final status. Tool actions fail clearly because this phase does not provide approval or action UI.
+The adapter prints changed plain-text snapshots, then the server conversation token and final status when the stream completes. Tool actions fail clearly because this phase does not provide approval or action UI.
 ### Channel-specific binaries
 The `warp_tui` package mirrors GUI channel binaries. Each channel-specific binary only configures `ChannelState` and calls `warp::run_tui()`; worker dispatch and frontend argument parsing remain in the `warp` app crate. The TUI frontend accepts:
 - `--prompt <text>`
-- `--conversation-id <local-ai-conversation-id>`
+- `--conversation-id <server-conversation-token>`
 Bare `cargo run -p warp_tui` uses the OSS/production channel; `./script/run-tui -- --prompt ...` selects the internal local channel when its channel config is available.
 ## End-to-end flow
 ```mermaid
@@ -46,7 +46,7 @@ flowchart TD
   Cluster --> Model["TuiConversationModel"]
   Model --> Select{"selected conversation?"}
   Select -->|none| New["Create and select conversation"]
-  Select -->|explicit ID| Restore["Restore and select conversation"]
+  Select -->|server token| Restore["Restore and select conversation"]
   New --> Send["BlocklistAIController request"]
   Restore --> Send
   Send --> Stream["ResponseStream events"]
@@ -60,13 +60,13 @@ Automated coverage verifies:
 - GUI and TUI conversation-selection behavior
 - creating a TUI conversation selects it for the correct terminal surface
 - split and removal events reconcile TUI selection
-- selecting a new conversation, restoring an existing conversation, and sending a follow-up retain the same local conversation ID
+- selecting a new conversation, restoring an existing conversation by server token, and sending a follow-up retain the same canonical local conversation ID
 - mock response-stream events flow through `BlocklistAIController` into filtered history/model events
 - app-owned TUI frontend parsing accepts prompt-streaming CLI arguments
 - Warp worker invocations dispatch before TUI frontend argument parsing
 Manual validation:
-- `cargo run -p warp_tui -- --prompt "Reply with exactly: hello from tui"` emits a local ID, streamed text, and `status=Success`
-- a separate process using that ID with `--conversation-id` restores the conversation and recalls the previous response
+- `cargo run -p warp_tui -- --prompt "Reply with exactly: hello from tui"` emits streamed text, the server conversation token as `conversation_id=...`, and `status=Success`
+- a separate process using that server token with `--conversation-id` restores the conversation and recalls the previous response
 - prompts requiring tools terminate with an unsupported-action error rather than hanging
 Run:
 - `./script/format`

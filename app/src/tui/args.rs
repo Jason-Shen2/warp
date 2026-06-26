@@ -1,12 +1,12 @@
 use anyhow::Result;
 
-use crate::ai::agent::conversation::AIConversationId;
+use crate::ai::agent::api::ServerConversationToken;
 
 /// Arguments accepted by the TUI frontend after worker dispatch.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TuiArgs {
     pub(super) prompt: Option<String>,
-    pub(super) conversation_id: Option<AIConversationId>,
+    pub(super) server_conversation_token: Option<ServerConversationToken>,
 }
 
 impl TuiArgs {
@@ -28,13 +28,11 @@ impl TuiArgs {
                     );
                 }
                 "--conversation-id" => {
-                    let conversation_id = args
+                    let server_conversation_token = args
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--conversation-id requires a value"))?;
-                    parsed.conversation_id = Some(
-                        AIConversationId::try_from(conversation_id)
-                            .map_err(|error| anyhow::anyhow!("Invalid conversation ID: {error}"))?,
-                    );
+                    parsed.server_conversation_token =
+                        Some(ServerConversationToken::new(server_conversation_token));
                 }
                 other => return Err(anyhow::anyhow!("Unknown argument: {other}")),
             }

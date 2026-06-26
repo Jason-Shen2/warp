@@ -1,21 +1,21 @@
 use super::TuiArgs;
-use crate::ai::agent::conversation::AIConversationId;
+use crate::ai::agent::api::ServerConversationToken;
 
-/// Parses a prompt and typed conversation ID.
+/// Parses a prompt and server conversation token.
 #[test]
 fn parses_prompt_and_conversation_id() {
-    let conversation_id = AIConversationId::new();
+    let server_conversation_token = ServerConversationToken::new("server-token".to_owned());
     assert_eq!(
         TuiArgs::parse([
             "--conversation-id".to_owned(),
-            conversation_id.to_string(),
+            server_conversation_token.as_str().to_owned(),
             "--prompt".to_owned(),
             "hello".to_owned(),
         ],)
         .unwrap(),
         TuiArgs {
             prompt: Some("hello".to_owned()),
-            conversation_id: Some(conversation_id),
+            server_conversation_token: Some(server_conversation_token),
         }
     );
 }
@@ -27,11 +27,20 @@ fn rejects_missing_argument_value() {
     assert_eq!(error.to_string(), "--prompt requires a value");
 }
 
-/// Rejects malformed conversation IDs during frontend argument parsing.
+/// Accepts opaque server conversation tokens.
 #[test]
-fn rejects_invalid_conversation_id() {
-    let error = TuiArgs::parse(["--conversation-id".to_owned(), "invalid".to_owned()]).unwrap_err();
-    assert!(error.to_string().starts_with("Invalid conversation ID:"));
+fn accepts_opaque_conversation_id() {
+    let args = TuiArgs::parse([
+        "--conversation-id".to_owned(),
+        "not-a-local-uuid".to_owned(),
+    ])
+    .unwrap();
+    assert_eq!(
+        args.server_conversation_token
+            .as_ref()
+            .map(ServerConversationToken::as_str),
+        Some("not-a-local-uuid")
+    );
 }
 
 /// Rejects unsupported TUI frontend arguments.
