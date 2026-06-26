@@ -1,6 +1,6 @@
 //! Model-layer AI input state management logic.
 //!
-//! The primary export of this module is `BlocklistAIInputModel`, which is a terminal pane-scoped
+//! The primary export of this module is `BlocklistAIInputModel`, which is a terminal-surface-scoped
 //! model managing input "type" state (whether the input is in AI or shell mode). This model also
 //! exposes methods for running query autodetection, where an algorithm determines if the current
 //! input contents are an AI query or shell command, which is then used to update the input mode.
@@ -191,7 +191,7 @@ impl From<InputConfig> for InputMode {
     }
 }
 
-/// Terminal pane-scoped model responsible for managing AI input state.
+/// Terminal-surface-scoped model responsible for managing AI input state.
 #[derive(Clone)]
 pub struct BlocklistAIInputModel {
     input_config: InputConfig,
@@ -211,12 +211,12 @@ pub struct BlocklistAIInputModel {
 
     conversation_selection: ModelHandle<ConversationSelectionModel>,
 
-    /// Handle to the per-pane context model. Used to read pending image / file attachments
+    /// Handle to the per-surface context model. Used to read pending image / file attachments
     /// when deciding whether to force-lock the input to AI mode (see
     /// [`BlocklistAIContextModel::has_locking_attachment`]).
     ai_context_model: ModelHandle<BlocklistAIContextModel>,
 
-    terminal_view_id: EntityId,
+    terminal_surface_id: EntityId,
 
     autodetect_abort_handle: Option<AbortHandle>,
     model: Arc<FairMutex<TerminalModel>>,
@@ -228,7 +228,7 @@ impl BlocklistAIInputModel {
         model: Arc<FairMutex<TerminalModel>>,
         conversation_selection: ModelHandle<ConversationSelectionModel>,
         ai_context_model: ModelHandle<BlocklistAIContextModel>,
-        terminal_view_id: EntityId,
+        terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
         // Reactively restore input config when CLI agent rich input closes.
@@ -243,7 +243,9 @@ impl BlocklistAIInputModel {
                 else {
                     return;
                 };
-                if *event_view_id != terminal_view_id {
+                // CLI agent sessions are keyed by terminal view id; GUI surfaces use the
+                // view id as their surface id, so this filters events to our surface.
+                if *event_view_id != terminal_surface_id {
                     return;
                 }
                 if let CLIAgentInputState::Open {
@@ -416,7 +418,7 @@ impl BlocklistAIInputModel {
             },
             conversation_selection,
             ai_context_model,
-            terminal_view_id,
+            terminal_surface_id,
             last_ai_autodetection_ts: None,
             last_ai_autodetection_source: initial_decision_source,
             last_explicit_input_type_set_at: None,
@@ -522,7 +524,7 @@ impl BlocklistAIInputModel {
                 .is_agent_view_active(ctx)
             && new_config.input_type.is_ai()
             && new_config.is_locked
-            && !CLIAgentSessionsModel::as_ref(ctx).is_input_open(self.terminal_view_id)
+            && !CLIAgentSessionsModel::as_ref(ctx).is_input_open(self.terminal_surface_id)
         {
             return false;
         }
