@@ -14,12 +14,13 @@ use warpui::{
 
 use super::args::TuiArgs;
 use super::conversation_model::{TuiConversationModel, TuiConversationModelEvent};
+use super::conversation_selection::TuiConversationSelection;
 use crate::ai::agent::api::ServerConversationToken;
 use crate::ai::agent::conversation::AIConversationId;
 use crate::ai::agent::AIAgentTextSection;
 use crate::ai::blocklist::{
     BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
-    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelectionModel,
+    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelection,
     ConversationStatusUpdate,
 };
 use crate::ai::get_relevant_files::controller::GetRelevantFilesController;
@@ -92,7 +93,8 @@ impl PromptStreamSurface {
         let active_session =
             ctx.add_model(|ctx| ActiveSession::new(sessions.clone(), model_events.clone(), ctx));
         let conversation_selection = ctx.add_model(|ctx| {
-            ConversationSelectionModel::new_for_tui_surface(terminal_surface_id, ctx)
+            Box::new(TuiConversationSelection::new(terminal_surface_id, ctx))
+                as Box<dyn ConversationSelection>
         });
         let context_model = ctx.add_model(|ctx| {
             BlocklistAIContextModel::new(

@@ -1,18 +1,26 @@
 # TUI conversation streaming — TECH
 ## Context
 This change adds a one-shot TUI path that sends a prompt through Warp's production AI controller and streams plain-text output to stdout. The reusable coordination model is designed to support a future interactive TUI without introducing an alternate request or response-stream implementation.
-`BlocklistAIHistoryModel` stores conversations and active/progress state per terminal surface. Active conversation means the current or most recent stream/progress target; it remains distinct from the conversation selected for the next prompt (`app/src/ai/blocklist/history_model.rs:206`, `app/src/ai/blocklist/conversation_selection_model.rs`).
-Every terminal surface owns a `ConversationSelectionModel`, which is the single shared-model boundary for selected/next-prompt conversation behavior. Its GUI backend delegates Agent View presentation lifecycle to `AgentViewController`; its TUI backend owns selection without constructing Agent View UI state.
+`BlocklistAIHistoryModel` stores conversations and active/progress state per terminal surface. Active conversation means the current or most recent stream/progress target; it remains distinct from the conversation selected for the next prompt (`app/src/ai/blocklist/history_model.rs:206`, `app/src/ai/blocklist/conversation_selection.rs`).
+Every terminal surface constructs its own implementation of the object-safe `ConversationSelection` contract and passes a type-erased `ConversationSelectionHandle` into shared AI models. The GUI implementation delegates selected-conversation behavior to `AgentViewController`; the TUI implementation owns selection without constructing Agent View UI state.
 ## Design
 ### Conversation selection boundary
-GUI and TUI composition roots explicitly construct the appropriate `ConversationSelectionModel` backend (`app/src/terminal/view.rs`, `app/src/tui/prompt_stream.rs`). The model centralizes:
+GUI and TUI composition roots explicitly construct their own `ConversationSelection` implementations and erase them behind `ConversationSelectionHandle = ModelHandle<Box<dyn ConversationSelection>>` (`app/src/terminal/view.rs`, `app/src/tui/prompt_stream.rs`). The contract centralizes:
 - selected/next-prompt conversation lookup
 - new and existing conversation targeting
-- pending-query state and autoexecute override
+- surface-owned pending-query behavior and effective autoexecute behavior
 - selection reconciliation for clear, split, remove, delete, and transfer history events
-- surface-neutral Agent View lifecycle events needed by shared models
 
-`BlocklistAIContextModel`, `BlocklistAIInputModel`, and `BlocklistAIController` each require a `ConversationSelectionModel`. They never accept an optional `AgentViewController` and never branch on whether Agent View exists. Context owns pending attachments and request context, input owns input-mode behavior, and the controller owns request/action/stream behavior. Only `ConversationSelectionModel` knows whether the surface is GUI or TUI (`app/src/ai/blocklist/conversation_selection_model.rs`).
+The generic blocklist module defines only the trait, fixed selection/presentation event contract, type-erased handle, and shared value types; it does not contain either surface implementation, selection state, or GUI/TUI branching. `AgentViewConversationSelection` lives beside Agent View code and is an unconditional thin adapter over the GUI's `AgentViewController`. `TuiConversationSelection` lives in the TUI frontend and owns its pending selection directly.
+
+`BlocklistAIContextModel`, `BlocklistAIInputModel`, and `BlocklistAIController` require a `ConversationSelectionHandle`; none accepts an optional `AgentViewController` or knows which surface implementation is inside the handle. Context owns pending attachments and request context, input owns input-mode behavior, and the controller owns request/action/stream behavior.
+
+The contract intentionally includes selected-conversation behavior together with conversation-presentation state and lifecycle events. It exposes active/fullscreen queries and entry/exit events because shared input/context/controller behavior must derive that information from the surface rather than duplicate it. Selection-mutating methods continue carrying `AgentViewEntryOrigin` and `EnterAgentViewError`; the GUI implementation forwards those values unchanged to `AgentViewController`, while the TUI implementation forwards origins through the shared lifecycle event contract without interpreting GUI-only origin behavior and never returns GUI-only entry failures.
+
+### Conversation presentation lifecycle
+The GUI selection implementation assumes Agent View is enabled, derives selected/active/fullscreen state directly from `AgentViewController`, and translates `AgentViewControllerEvent` into `ConversationSelectionEvent` for shared models. It does not preserve a second pending-selection state machine for the legacy AgentView-disabled path. The TUI implementation treats any selected conversation as active and fullscreen; it has no separate terminal-versus-Agent-View presentation state.
+
+`BlocklistAIInputModel` and `BlocklistAIContextModel` derive active/fullscreen state synchronously from `ConversationSelectionHandle` and subscribe to its lifecycle events for transition side effects. `BlocklistAIController` subscribes to exit events for cancellation behavior. Shared models never store presentation state and never hold `AgentViewController`.
 ### Terminal-surface-scoped history
 WarpUI `EntityId` is the routing key for a terminal surface. History fields, methods, and events use `terminal_surface_id` terminology consistently:
 - live, cleared, and active conversation IDs are keyed by terminal surface
@@ -21,7 +29,7 @@ WarpUI `EntityId` is the routing key for a terminal surface. History fields, met
 Moving a conversation between surfaces emits `ConversationTransferredBetweenTerminalSurfaces`, allowing the previous surface to discard rendered blocks while the destination becomes canonical (`app/src/ai/blocklist/history_model.rs:1047`, `app/src/ai/blocklist/history_model.rs:2855`).
 ### TUI conversation coordination
 `TuiConversationModel` is the reusable TUI presentation coordinator (`app/src/tui/conversation_model.rs:31`). It contains no transcript widgets and coordinates:
-- the TUI conversation-selection backend
+- the TUI-owned `ConversationSelection` implementation
 - creation and selection of a new conversation
 - restore and selection of an existing conversation
 - prompt submission through `BlocklistAIController`
@@ -57,7 +65,9 @@ flowchart TD
 ## Testing and validation
 Automated coverage verifies:
 - terminal-surface-scoped history maps and active/progress state
-- GUI and TUI conversation-selection behavior
+- the generic conversation-selection contract and TUI-owned pending-selection state
+- GUI implementation delegation to Agent View and TUI-owned selection behavior
+- GUI Agent View lifecycle effects remain behaviorally equivalent through the trait adapter
 - creating a TUI conversation selects it for the correct terminal surface
 - split and removal events reconcile TUI selection
 - selecting a new conversation, restoring an existing conversation by server token, and sending a follow-up retain the same canonical local conversation ID
@@ -83,7 +93,8 @@ Run:
 - A raw server-stream client that bypasses `BlocklistAIController`
 - A stable external stdout protocol
 ## Risks and mitigations
-- **GUI behavior regresses.** The GUI `ConversationSelectionModel` backend delegates selection and lifecycle behavior to the existing `AgentViewController` and re-emits lifecycle events to shared models.
-- **Active/progress and selected/next-prompt semantics blur.** Keep active state in history and selected/next-prompt behavior behind `ConversationSelectionModel`.
+- **GUI behavior regresses.** `AgentViewConversationSelection` delegates selection to the existing `AgentViewController` and translates its lifecycle events without duplicating state. Pin entry/exit ordering and side effects with focused GUI tests.
+- **The contract accumulates GUI vocabulary.** Keep the surface implementations responsible for interpreting presentation state and `AgentViewEntryOrigin`; shared models consume the common contract without branching on GUI versus TUI.
+- **Active/progress and selected/next-prompt semantics blur.** Keep active state in history and selected/next-prompt behavior behind `ConversationSelection`.
 - **A TUI selection becomes invalid.** Reconcile selection from removal, deletion, transfer, clear, and split events.
 - **One-shot presentation policy leaks into reusable models.** Keep stdout, termination, and unsupported-action behavior in `PromptStreamSurface`.

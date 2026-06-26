@@ -8,7 +8,7 @@ use crate::ai::agent::conversation::{AIConversationId, ConversationStatus};
 use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
 use crate::ai::blocklist::{
     BlocklistAIController, BlocklistAIHistoryEvent, BlocklistAIHistoryModel,
-    ConversationSelectionEvent, ConversationSelectionModel, ConversationStatusUpdate,
+    ConversationSelectionEvent, ConversationSelectionHandle, ConversationStatusUpdate,
 };
 
 /// Events emitted by a TUI conversation model for presentation layers.
@@ -40,7 +40,7 @@ pub(super) enum TuiConversationModelEvent {
 /// submission, and history-backed stream events for one TUI selection.
 pub(super) struct TuiConversationModel {
     terminal_surface_id: EntityId,
-    conversation_selection: ModelHandle<ConversationSelectionModel>,
+    conversation_selection: ConversationSelectionHandle,
     ai_controller: ModelHandle<BlocklistAIController>,
 }
 
@@ -48,12 +48,12 @@ impl TuiConversationModel {
     /// Creates a TUI conversation model around the shared production AI models.
     pub(super) fn new(
         terminal_surface_id: EntityId,
-        conversation_selection: ModelHandle<ConversationSelectionModel>,
+        conversation_selection: ConversationSelectionHandle,
         ai_controller: ModelHandle<BlocklistAIController>,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
         ctx.subscribe_to_model(&conversation_selection, |model, _, event, ctx| {
-            if matches!(event, ConversationSelectionEvent::PendingQueryStateUpdated) {
+            if matches!(event, ConversationSelectionEvent::Changed) {
                 ctx.emit(TuiConversationModelEvent::SelectedConversationChanged {
                     conversation_id: model.selected_conversation_id(ctx),
                 });

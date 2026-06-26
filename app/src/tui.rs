@@ -13,6 +13,7 @@ use crate::auth::AuthStateProvider;
 mod args;
 
 mod conversation_model;
+mod conversation_selection;
 mod prompt_stream;
 pub(crate) use args::TuiArgs;
 

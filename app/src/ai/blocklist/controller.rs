@@ -30,17 +30,15 @@ use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonE
 
 use self::response_stream::{ResponseStream, ResponseStreamEvent};
 use super::action_model::{BlocklistAIActionEvent, BlocklistAIActionModel};
-use super::agent_view::AgentViewEntryOrigin;
 use super::context_model::{BlocklistAIContextModel, PendingAttachment, PendingFile};
-use super::conversation_selection_model::{ConversationSelectionEvent, ConversationSelectionModel};
+use super::conversation_selection::{ConversationSelectionEvent, ConversationSelectionHandle};
 use super::history_model::BlocklistAIHistoryModel;
-use super::input_model::InputConfig;
 use super::orchestration_event_streamer::{
     OrchestrationEventStreamer, OrchestrationEventStreamerEvent,
 };
 use super::orchestration_events::{OrchestrationEventService, OrchestrationEventServiceEvent};
 use super::queued_query::{QueuedQueryId, QueuedQueryModel};
-use super::{BlocklistAIInputModel, InputType, ResponseStreamId};
+use super::{BlocklistAIInputModel, ResponseStreamId};
 use crate::ai::agent::api::{self, ServerConversationToken};
 use crate::ai::agent::conversation::{AIConversation, AIConversationId, ConversationStatus};
 use crate::ai::agent::task::TaskId;
@@ -317,7 +315,6 @@ pub struct BlocklistAIController {
     active_session: ModelHandle<ActiveSession>,
     input_model: ModelHandle<BlocklistAIInputModel>,
     context_model: ModelHandle<BlocklistAIContextModel>,
-    conversation_selection: ModelHandle<ConversationSelectionModel>,
     action_model: ModelHandle<BlocklistAIActionModel>,
     terminal_model: Arc<FairMutex<TerminalModel>>,
 
@@ -379,11 +376,6 @@ enum WhichTask {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FollowUpTrigger {
-    Auto,
-    UserRequested,
-}
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum LocalClaudeWakeTrigger {
     PendingEvents,
@@ -435,7 +427,7 @@ impl BlocklistAIController {
     pub(crate) fn new(
         input_model: ModelHandle<BlocklistAIInputModel>,
         context_model: ModelHandle<BlocklistAIContextModel>,
-        conversation_selection: ModelHandle<ConversationSelectionModel>,
+        conversation_selection: ConversationSelectionHandle,
         action_model: ModelHandle<BlocklistAIActionModel>,
         active_session: ModelHandle<ActiveSession>,
         terminal_model: Arc<FairMutex<TerminalModel>>,
@@ -552,12 +544,7 @@ impl BlocklistAIController {
                 }
                 return;
             }
-            let trigger = if has_manual_follow_up {
-                FollowUpTrigger::UserRequested
-            } else {
-                FollowUpTrigger::Auto
-            };
-            me.send_follow_up_for_conversation(*conversation_id, trigger, ctx);
+            me.send_follow_up_for_conversation(*conversation_id, ctx);
         });
 
         ctx.subscribe_to_model(&conversation_selection, |me, _, event, ctx| {
@@ -569,28 +556,16 @@ impl BlocklistAIController {
             else {
                 return;
             };
-
-            // Skip if this exit is part of an in-place switch — cancelling here
-            // would kill an in-flight stream every time the user navigates.
-            if *is_exit_before_new_entrance {
+            if *is_exit_before_new_entrance || *final_exchange_count == 0 {
                 return;
             }
-
-            // If we exited a brand-new empty conversation, there's nothing meaningful to cancel.
-            if *final_exchange_count == 0 {
-                return;
-            }
-
             let history = BlocklistAIHistoryModel::handle(ctx);
             let Some(conversation) = history.as_ref(ctx).conversation(conversation_id) else {
                 return;
             };
-
-            // Viewer sessions should not send cancellations.
             if conversation.is_viewing_shared_session() {
                 return;
             }
-
             if conversation.status().is_in_progress() {
                 me.cancel_conversation_progress(
                     *conversation_id,
@@ -599,7 +574,6 @@ impl BlocklistAIController {
                 );
             }
         });
-
         // Subscribe to the orchestration event service to inject events
         // (e.g. MessagesReceivedFromAgents) into conversations that receive inter-agent messages.
         let svc = OrchestrationEventService::handle(ctx);
@@ -622,7 +596,6 @@ impl BlocklistAIController {
         Self {
             input_model,
             context_model,
-            conversation_selection,
             action_model,
             active_session,
             terminal_model,
@@ -852,7 +825,6 @@ impl BlocklistAIController {
                 entrypoint: entrypoint_type,
                 is_auto_resume_after_error: false,
             }),
-            /*default_to_follow_up_on_success*/ true,
             /*can_attempt_resume_on_error*/ true,
             is_queued_prompt,
             ctx,
@@ -1414,11 +1386,7 @@ impl BlocklistAIController {
             .as_ref(ctx)
             .get_finished_action_results(conversation_id);
         if finished_action_results.is_some_and(|results| !results.is_empty()) {
-            self.send_follow_up_for_conversation(
-                conversation_id,
-                FollowUpTrigger::UserRequested,
-                ctx,
-            );
+            self.send_follow_up_for_conversation(conversation_id, ctx);
         }
     }
 
@@ -1520,7 +1488,6 @@ impl BlocklistAIController {
     fn send_follow_up_for_conversation(
         &mut self,
         conversation_id: AIConversationId,
-        trigger: FollowUpTrigger,
         ctx: &mut ModelContext<Self>,
     ) {
         if self
@@ -1533,23 +1500,6 @@ impl BlocklistAIController {
         BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
             history.mark_active_conversation_id(conversation_id, self.terminal_surface_id, ctx);
         });
-
-        if !self
-            .conversation_selection
-            .as_ref(ctx)
-            .uses_agent_view_selection()
-            && trigger == FollowUpTrigger::Auto
-        {
-            // If `AgentView` is enabled, the conversation is guaranteed to be active while the
-            // conversation is in-progress and thus while actions are executing/finishing.
-            self.context_model.update(ctx, |context_model, ctx| {
-                context_model.set_pending_query_state_for_existing_conversation(
-                    conversation_id,
-                    AgentViewEntryOrigin::AutoFollowUp,
-                    ctx,
-                );
-            });
-        }
 
         let finished_results = self.action_model.update(ctx, |action_model, _| {
             action_model.drain_finished_action_results(conversation_id)
@@ -1618,7 +1568,6 @@ impl BlocklistAIController {
         let result = self.send_request_input(
             request_input,
             None,
-            /*default_to_follow_up_on_success*/ false,
             /*can_attempt_resume_on_error*/ true,
             /*is_queued_prompt*/ false,
             ctx,
@@ -1889,7 +1838,6 @@ impl BlocklistAIController {
                     ctx,
                 ),
                 None,
-                /*default_to_follow_up_on_success*/ true,
                 /*can_attempt_resume_on_error*/ true,
                 /*is_queued_prompt*/ false,
                 ctx,
@@ -2011,7 +1959,6 @@ impl BlocklistAIController {
                 ctx,
             ),
             metadata,
-            /*default_to_follow_up_on_success*/ true,
             can_attempt_resume_on_error,
             /*is_queued_prompt*/ false,
             ctx,
@@ -2094,7 +2041,6 @@ impl BlocklistAIController {
                 },
                 is_auto_resume_after_error: false,
             }),
-            /*default_to_follow_up_on_success=*/ false,
             /*can_attempt_resume_on_error*/ true,
             /*is_queued_prompt*/ false,
             ctx,
@@ -2260,7 +2206,6 @@ impl BlocklistAIController {
                 },
                 is_auto_resume_after_error: false,
             }),
-            /*default_to_follow_up_on_success*/ false,
             /*can_attempt_resume_on_error*/ true,
             /*is_queued_prompt*/ false,
             ctx,
@@ -2330,7 +2275,6 @@ impl BlocklistAIController {
         &mut self,
         request_input: RequestInput,
         query_metadata: Option<RequestMetadata>,
-        default_to_follow_up_on_success: bool,
         can_attempt_resume_on_error: bool,
         is_queued_prompt: bool,
         ctx: &mut ModelContext<Self>,
@@ -2575,34 +2519,6 @@ impl BlocklistAIController {
         // This ensures the agent view is restored if the app restarts.
         if input_contains_user_query {
             ctx.dispatch_global_action("workspace:save_app", ());
-        }
-
-        // If `AgentView` is enabled, the agent view is guaranteed to be active when the agent
-        // input is sent, so logic to ensure follow-ups is redundant.
-        if !self
-            .conversation_selection
-            .as_ref(ctx)
-            .uses_agent_view_selection()
-            && default_to_follow_up_on_success
-        {
-            // Set the input mode to AI but allow autodetection to run
-            self.input_model.update(ctx, |input_model, ctx| {
-                input_model.set_input_config_for_classic_mode(
-                    InputConfig {
-                        input_type: InputType::AI,
-                        is_locked: false,
-                    },
-                    ctx,
-                );
-            });
-            // After making an AI query, default to asking a follow up.
-            self.context_model.update(ctx, |context_model, ctx| {
-                context_model.set_pending_query_state_for_existing_conversation(
-                    conversation_data.id,
-                    AgentViewEntryOrigin::AutoFollowUp,
-                    ctx,
-                )
-            });
         }
 
         Ok((conversation_data.id, response_stream_id))

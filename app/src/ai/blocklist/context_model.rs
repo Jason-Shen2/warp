@@ -15,7 +15,7 @@ use warpui::{
 
 use super::agent_view::{AgentViewEntryOrigin, EnterAgentViewError};
 use super::block::DirectoryContext;
-use super::{ConversationSelectionEvent, ConversationSelectionModel, PendingQueryState};
+use super::{ConversationSelectionEvent, ConversationSelectionHandle};
 use crate::ai::agent::conversation::{
     AIConversation, AIConversationAutoexecuteMode, AIConversationId, ConversationStatus,
 };
@@ -90,7 +90,7 @@ pub struct BlocklistAIContextModel {
     /// Storage for diff hunk attachments that can be referenced in queries
     pending_inline_diff_hunk_attachments: HashMap<String, AIAgentAttachment>,
 
-    conversation_selection: ModelHandle<ConversationSelectionModel>,
+    conversation_selection: ConversationSelectionHandle,
 
     /// The ID of the terminal surface this model is associated with.
     terminal_surface_id: EntityId,
@@ -145,7 +145,7 @@ impl BlocklistAIContextModel {
         model_event_dispatcher: &ModelHandle<ModelEventDispatcher>,
         terminal_model: Arc<FairMutex<TerminalModel>>,
         terminal_surface_id: EntityId,
-        conversation_selection: ModelHandle<ConversationSelectionModel>,
+        conversation_selection: ConversationSelectionHandle,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
         ctx.subscribe_to_model(
@@ -199,11 +199,11 @@ impl BlocklistAIContextModel {
         });
 
         ctx.subscribe_to_model(&conversation_selection, |me, _, event, ctx| match event {
-            ConversationSelectionEvent::PendingQueryStateUpdated => {
+            ConversationSelectionEvent::Changed => {
                 ctx.emit(BlocklistAIContextEvent::PendingQueryStateUpdated);
             }
-            ConversationSelectionEvent::AgentViewExited { .. }
-            | ConversationSelectionEvent::AgentViewEntered { .. } => {
+            ConversationSelectionEvent::AgentViewEntered { .. }
+            | ConversationSelectionEvent::AgentViewExited { .. } => {
                 me.auto_attached_agent_view_user_block_ids.clear();
             }
         });
@@ -228,7 +228,7 @@ impl BlocklistAIContextModel {
     pub(crate) fn new_for_test(
         terminal_model: Arc<FairMutex<TerminalModel>>,
         terminal_surface_id: EntityId,
-        conversation_selection: ModelHandle<ConversationSelectionModel>,
+        conversation_selection: ConversationSelectionHandle,
     ) -> Self {
         Self {
             terminal_model,
@@ -634,13 +634,6 @@ impl BlocklistAIContextModel {
         to_remove
     }
 
-    pub fn pending_query_state(&self, ctx: &AppContext) -> PendingQueryState {
-        self.conversation_selection
-            .as_ref(ctx)
-            .pending_query_state()
-            .clone()
-    }
-
     /// Convenience function to set pending query state to continue an existing conversation by ID.
     pub fn set_pending_query_state_for_existing_conversation(
         &mut self,
@@ -742,7 +735,8 @@ impl BlocklistAIContextModel {
     pub fn is_targeting_existing_conversation(&self, ctx: &AppContext) -> bool {
         self.conversation_selection
             .as_ref(ctx)
-            .is_targeting_existing_conversation()
+            .selected_conversation_id(ctx)
+            .is_some()
     }
 
     /// Returns the status of the selected conversation for purposes of rendering the input hint

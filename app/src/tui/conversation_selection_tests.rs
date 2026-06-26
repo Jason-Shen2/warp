@@ -1,88 +1,32 @@
-use std::sync::Arc;
-
-use parking_lot::FairMutex;
-use warp_core::features::FeatureFlag;
-use warpui::r#async::executor::Background;
+use warp_core::execution_mode::ExecutionMode;
 use warpui::{App, EntityId, ModelHandle};
 
-use super::ConversationSelectionModel;
+use super::TuiConversationSelection;
 use crate::ai::agent::conversation::AIConversationId;
-use crate::ai::blocklist::agent_view::{
-    AgentViewController, AgentViewEntryOrigin, EphemeralMessageModel,
+use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
+use crate::ai::blocklist::{
+    BlocklistAIHistoryEvent, BlocklistAIHistoryModel, ConversationSelection,
+    ConversationSelectionHandle,
 };
-use crate::ai::blocklist::{BlocklistAIHistoryEvent, BlocklistAIHistoryModel};
-use crate::terminal::color::{self, Colors};
-use crate::terminal::event_listener::ChannelEventListener;
-use crate::terminal::model::test_utils::block_size;
-use crate::terminal::TerminalModel;
-use crate::test_util::settings::initialize_settings_for_tests;
+use crate::test_util::settings::{
+    initialize_settings_for_tests, initialize_settings_for_tests_with_mode,
+};
 
 fn build_tui_selection(
     app: &mut App,
 ) -> (
     ModelHandle<BlocklistAIHistoryModel>,
-    ModelHandle<ConversationSelectionModel>,
+    ConversationSelectionHandle,
     EntityId,
 ) {
     initialize_settings_for_tests(app);
     let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
     let terminal_surface_id = EntityId::new();
-    let selection = app
-        .add_model(|ctx| ConversationSelectionModel::new_for_tui_surface(terminal_surface_id, ctx));
-    (history, selection, terminal_surface_id)
-}
-
-#[test]
-fn gui_selection_delegates_selection_to_agent_view() {
-    App::test((), |mut app| async move {
-        let _agent_view = FeatureFlag::AgentView.override_enabled(true);
-        initialize_settings_for_tests(&mut app);
-        let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
-        let terminal_surface_id = EntityId::new();
-        let terminal_model = Arc::new(FairMutex::new(TerminalModel::new_for_test(
-            block_size(),
-            color::List::from(&Colors::default()),
-            ChannelEventListener::new_for_test(),
-            Arc::new(Background::default()),
-            false,
-            None,
-            false,
-            false,
-            None,
-        )));
-        let ephemeral_message_model = app.add_model(|_| EphemeralMessageModel::new());
-        let agent_view_controller = app.add_model(|_| {
-            AgentViewController::new(terminal_model, terminal_surface_id, ephemeral_message_model)
-        });
-        let selection = app.add_model(|ctx| {
-            ConversationSelectionModel::new_for_terminal_view(
-                terminal_surface_id,
-                agent_view_controller.clone(),
-                ctx,
-            )
-        });
-        let conversation_id = history.update(&mut app, |history, ctx| {
-            history.start_new_conversation(terminal_surface_id, false, false, false, ctx)
-        });
-
-        selection.update(&mut app, |selection, ctx| {
-            selection.select_existing_conversation(
-                conversation_id,
-                AgentViewEntryOrigin::ConversationSelector,
-                ctx,
-            );
-        });
-
-        selection.read(&app, |selection, ctx| {
-            assert_eq!(
-                selection.selected_conversation_id(ctx),
-                Some(conversation_id)
-            );
-        });
-        agent_view_controller.read(&app, |controller, _| {
-            assert!(controller.is_active());
-        });
+    let selection = app.add_model(|ctx| {
+        Box::new(TuiConversationSelection::new(terminal_surface_id, ctx))
+            as Box<dyn ConversationSelection>
     });
+    (history, selection, terminal_surface_id)
 }
 
 #[test]
@@ -99,6 +43,8 @@ fn tui_selection_owns_next_prompt_selection() {
                 selection.selected_conversation_id(ctx),
                 Some(conversation_id)
             );
+            assert!(selection.is_agent_view_active(ctx));
+            assert!(selection.is_agent_view_fullscreen(ctx));
         });
 
         selection.update(&mut app, |selection, ctx| {
@@ -106,6 +52,8 @@ fn tui_selection_owns_next_prompt_selection() {
         });
         selection.read(&app, |selection, ctx| {
             assert_eq!(selection.selected_conversation_id(ctx), None);
+            assert!(!selection.is_agent_view_active(ctx));
+            assert!(!selection.is_agent_view_fullscreen(ctx));
         });
     });
 }
@@ -176,6 +124,32 @@ fn tui_selection_reconciles_split_and_removed_selection() {
         });
         selection.read(&app, |selection, ctx| {
             assert_eq!(selection.selected_conversation_id(ctx), None);
+        });
+    });
+}
+
+#[test]
+fn tui_new_conversation_preserves_pending_autoexecute_override() {
+    App::test((), |mut app| async move {
+        initialize_settings_for_tests_with_mode(&mut app, ExecutionMode::App, true);
+        let history = app.add_singleton_model(|_| BlocklistAIHistoryModel::new_for_test());
+        let terminal_surface_id = EntityId::new();
+        let selection = app.add_model(|ctx| {
+            Box::new(TuiConversationSelection::new(terminal_surface_id, ctx))
+                as Box<dyn ConversationSelection>
+        });
+
+        let conversation_id = selection
+            .update(&mut app, |selection, ctx| {
+                selection.try_start_new_conversation(AgentViewEntryOrigin::Cli, ctx)
+            })
+            .expect("TUI conversation creation should succeed");
+
+        history.read(&app, |history, _| {
+            assert!(history
+                .conversation(&conversation_id)
+                .expect("conversation should exist")
+                .autoexecute_any_action());
         });
     });
 }
