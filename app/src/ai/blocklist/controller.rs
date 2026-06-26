@@ -32,7 +32,7 @@ use self::response_stream::{ResponseStream, ResponseStreamEvent};
 use super::action_model::{BlocklistAIActionEvent, BlocklistAIActionModel};
 use super::agent_view::AgentViewEntryOrigin;
 use super::context_model::{BlocklistAIContextModel, PendingAttachment, PendingFile};
-use super::conversation_surface_model::{ConversationSurfaceEvent, ConversationSurfaceModel};
+use super::conversation_selection_model::{ConversationSelectionEvent, ConversationSelectionModel};
 use super::history_model::BlocklistAIHistoryModel;
 use super::input_model::InputConfig;
 use super::orchestration_event_streamer::{
@@ -317,7 +317,7 @@ pub struct BlocklistAIController {
     active_session: ModelHandle<ActiveSession>,
     input_model: ModelHandle<BlocklistAIInputModel>,
     context_model: ModelHandle<BlocklistAIContextModel>,
-    conversation_surface: ModelHandle<ConversationSurfaceModel>,
+    conversation_selection: ModelHandle<ConversationSelectionModel>,
     action_model: ModelHandle<BlocklistAIActionModel>,
     terminal_model: Arc<FairMutex<TerminalModel>>,
 
@@ -435,7 +435,7 @@ impl BlocklistAIController {
     pub(crate) fn new(
         input_model: ModelHandle<BlocklistAIInputModel>,
         context_model: ModelHandle<BlocklistAIContextModel>,
-        conversation_surface: ModelHandle<ConversationSurfaceModel>,
+        conversation_selection: ModelHandle<ConversationSelectionModel>,
         action_model: ModelHandle<BlocklistAIActionModel>,
         active_session: ModelHandle<ActiveSession>,
         terminal_model: Arc<FairMutex<TerminalModel>>,
@@ -560,8 +560,8 @@ impl BlocklistAIController {
             me.send_follow_up_for_conversation(*conversation_id, trigger, ctx);
         });
 
-        ctx.subscribe_to_model(&conversation_surface, |me, _, event, ctx| {
-            let ConversationSurfaceEvent::AgentViewExited {
+        ctx.subscribe_to_model(&conversation_selection, |me, _, event, ctx| {
+            let ConversationSelectionEvent::AgentViewExited {
                 conversation_id,
                 final_exchange_count,
                 is_exit_before_new_entrance,
@@ -622,7 +622,7 @@ impl BlocklistAIController {
         Self {
             input_model,
             context_model,
-            conversation_surface,
+            conversation_selection,
             action_model,
             active_session,
             terminal_model,
@@ -1534,7 +1534,7 @@ impl BlocklistAIController {
         });
 
         if !self
-            .conversation_surface
+            .conversation_selection
             .as_ref(ctx)
             .uses_agent_view_selection()
             && trigger == FollowUpTrigger::Auto
@@ -2579,7 +2579,7 @@ impl BlocklistAIController {
         // If `AgentView` is enabled, the agent view is guaranteed to be active when the agent
         // input is sent, so logic to ensure follow-ups is redundant.
         if !self
-            .conversation_surface
+            .conversation_selection
             .as_ref(ctx)
             .uses_agent_view_selection()
             && default_to_follow_up_on_success

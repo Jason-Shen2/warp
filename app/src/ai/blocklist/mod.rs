@@ -5,7 +5,7 @@ pub mod block;
 pub mod code_block;
 mod context_model;
 mod controller;
-mod conversation_surface_model;
+mod conversation_selection_model;
 pub(crate) mod handoff;
 
 pub(crate) mod local_agent_task_sync_model;
@@ -57,8 +57,8 @@ pub(crate) use controller::{
     BlocklistAIController, BlocklistAIControllerEvent, ClientIdentifiers, SessionContext,
     SlashCommandRequest,
 };
-pub(crate) use conversation_surface_model::{
-    ConversationSurfaceEvent, ConversationSurfaceModel, PendingQueryState,
+pub(crate) use conversation_selection_model::{
+    ConversationSelectionEvent, ConversationSelectionModel, PendingQueryState,
 };
 pub(crate) use history_model::{
     AIQueryHistory, AIQueryHistoryOutputStatus, BeginConversationRenameError,

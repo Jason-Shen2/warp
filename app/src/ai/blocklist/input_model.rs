@@ -89,7 +89,7 @@ impl From<InputClassifierDecisionSource> for InputTypeAutoDetectionSource {
 use super::agent_view::AgentViewEntryOrigin;
 use super::context_model::BlocklistAIContextModel;
 use super::telemetry_banner::should_collect_ai_ugc_telemetry;
-use super::{ConversationSurfaceEvent, ConversationSurfaceModel};
+use super::{ConversationSelectionEvent, ConversationSelectionModel};
 use crate::input_classifier::InputClassifierModel;
 use crate::settings::{AISettings, AISettingsChangedEvent, InputBoxType, InputSettings};
 use crate::terminal::cli_agent_sessions::{
@@ -209,7 +209,7 @@ pub struct BlocklistAIInputModel {
     /// if a persistent lock is in place and a buffer is submitted.
     was_lock_set_with_empty_buffer: bool,
 
-    conversation_surface: ModelHandle<ConversationSurfaceModel>,
+    conversation_selection: ModelHandle<ConversationSelectionModel>,
 
     /// Handle to the per-pane context model. Used to read pending image / file attachments
     /// when deciding whether to force-lock the input to AI mode (see
@@ -226,7 +226,7 @@ impl BlocklistAIInputModel {
     /// Creates input state for a terminal surface.
     pub(crate) fn new(
         model: Arc<FairMutex<TerminalModel>>,
-        conversation_surface: ModelHandle<ConversationSurfaceModel>,
+        conversation_selection: ModelHandle<ConversationSelectionModel>,
         ai_context_model: ModelHandle<BlocklistAIContextModel>,
         terminal_view_id: EntityId,
         ctx: &mut ModelContext<Self>,
@@ -314,8 +314,8 @@ impl BlocklistAIInputModel {
             }
         });
 
-        ctx.subscribe_to_model(&conversation_surface, |me, _, event, ctx| match event {
-            ConversationSurfaceEvent::AgentViewEntered {
+        ctx.subscribe_to_model(&conversation_selection, |me, _, event, ctx| match event {
+            ConversationSelectionEvent::AgentViewEntered {
                 display_mode,
                 origin,
             } => {
@@ -373,7 +373,7 @@ impl BlocklistAIInputModel {
                     );
                 }
             }
-            ConversationSurfaceEvent::AgentViewExited {
+            ConversationSelectionEvent::AgentViewExited {
                 is_exit_before_new_entrance,
                 ..
             } => {
@@ -392,7 +392,7 @@ impl BlocklistAIInputModel {
                     );
                 }
             }
-            ConversationSurfaceEvent::PendingQueryStateUpdated => {}
+            ConversationSelectionEvent::PendingQueryStateUpdated => {}
         });
 
         let is_autodetection_enabled = if FeatureFlag::AgentView.is_enabled() {
@@ -406,7 +406,7 @@ impl BlocklistAIInputModel {
                 input_type: InputType::Shell,
                 is_locked: !is_autodetection_enabled,
             },
-            conversation_surface,
+            conversation_selection,
             ai_context_model,
             terminal_view_id,
             last_ai_autodetection_ts: None,
@@ -420,14 +420,14 @@ impl BlocklistAIInputModel {
 
     /// Returns whether the GUI Agent View integration is active.
     fn is_agent_view_active(&self, app: &AppContext) -> bool {
-        self.conversation_surface
+        self.conversation_selection
             .as_ref(app)
             .is_agent_view_active(app)
     }
 
     /// Returns whether the GUI Agent View integration is fullscreen.
     fn is_agent_view_fullscreen(&self, app: &AppContext) -> bool {
-        self.conversation_surface
+        self.conversation_selection
             .as_ref(app)
             .is_agent_view_fullscreen(app)
     }

@@ -129,13 +129,13 @@ impl TerminalView {
                 return None;
             }
 
-            let is_cloud_conversation_surface = model.is_shared_ambient_agent_session()
+            let is_cloud_conversation_selection = model.is_shared_ambient_agent_session()
                 || model.is_conversation_transcript_viewer()
                 || self
                     .ambient_agent_view_model
                     .as_ref()
                     .is_some_and(|model| model.as_ref(ctx).is_ambient_agent());
-            if !is_cloud_conversation_surface {
+            if !is_cloud_conversation_selection {
                 return None;
             }
 

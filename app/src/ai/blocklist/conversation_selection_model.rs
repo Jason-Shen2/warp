@@ -39,7 +39,7 @@ impl PendingQueryState {
 }
 
 #[cfg_attr(not(feature = "tui"), allow(dead_code))]
-enum ConversationSurface {
+enum ConversationSelectionBackend {
     TerminalView {
         agent_view_controller: ModelHandle<AgentViewController>,
     },
@@ -48,7 +48,7 @@ enum ConversationSurface {
 
 /// Events shared models use without depending on GUI Agent View state.
 #[derive(Clone, Debug)]
-pub enum ConversationSurfaceEvent {
+pub enum ConversationSelectionEvent {
     PendingQueryStateUpdated,
     AgentViewEntered {
         display_mode: AgentViewDisplayMode,
@@ -62,14 +62,14 @@ pub enum ConversationSurfaceEvent {
 }
 
 /// Per-terminal-surface selection and Agent View lifecycle boundary.
-pub struct ConversationSurfaceModel {
+pub struct ConversationSelectionModel {
     terminal_surface_id: EntityId,
     pending_query_state: PendingQueryState,
-    surface: ConversationSurface,
+    backend: ConversationSelectionBackend,
 }
 
-impl ConversationSurfaceModel {
-    /// Creates conversation state for a GUI terminal view.
+impl ConversationSelectionModel {
+    /// Creates conversation selection state for a GUI terminal view.
     pub(crate) fn new_for_terminal_view(
         terminal_surface_id: EntityId,
         agent_view_controller: ModelHandle<AgentViewController>,
@@ -80,7 +80,7 @@ impl ConversationSurfaceModel {
                 display_mode,
                 origin,
                 ..
-            } => ctx.emit(ConversationSurfaceEvent::AgentViewEntered {
+            } => ctx.emit(ConversationSelectionEvent::AgentViewEntered {
                 display_mode: *display_mode,
                 origin: origin.clone(),
             }),
@@ -89,7 +89,7 @@ impl ConversationSurfaceModel {
                 final_exchange_count,
                 is_exit_before_new_entrance,
                 ..
-            } => ctx.emit(ConversationSurfaceEvent::AgentViewExited {
+            } => ctx.emit(ConversationSelectionEvent::AgentViewExited {
                 conversation_id: *conversation_id,
                 final_exchange_count: *final_exchange_count,
                 is_exit_before_new_entrance: *is_exit_before_new_entrance,
@@ -99,23 +99,23 @@ impl ConversationSurfaceModel {
 
         Self::new(
             terminal_surface_id,
-            ConversationSurface::TerminalView {
+            ConversationSelectionBackend::TerminalView {
                 agent_view_controller,
             },
             ctx,
         )
     }
 
-    /// Creates conversation state for a TUI surface.
+    /// Creates conversation selection state for a TUI surface.
     #[cfg(feature = "tui")]
     pub(crate) fn new_for_tui_surface(
         terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
-        Self::new(terminal_surface_id, ConversationSurface::Tui, ctx)
+        Self::new(terminal_surface_id, ConversationSelectionBackend::Tui, ctx)
     }
 
-    /// Creates conversation state without production subscriptions.
+    /// Creates conversation selection state without production subscriptions.
     #[cfg(test)]
     pub(crate) fn new_for_terminal_view_test(
         terminal_surface_id: EntityId,
@@ -124,34 +124,34 @@ impl ConversationSurfaceModel {
         Self {
             terminal_surface_id,
             pending_query_state: PendingQueryState::default(),
-            surface: ConversationSurface::TerminalView {
+            backend: ConversationSelectionBackend::TerminalView {
                 agent_view_controller,
             },
         }
     }
 
-    /// Creates TUI conversation state without production subscriptions.
+    /// Creates TUI conversation selection state without production subscriptions.
     #[cfg(test)]
     pub(crate) fn new_for_tui_surface_test(terminal_surface_id: EntityId) -> Self {
         Self {
             terminal_surface_id,
             pending_query_state: PendingQueryState::default(),
-            surface: ConversationSurface::Tui,
+            backend: ConversationSelectionBackend::Tui,
         }
     }
 
-    /// Creates TUI conversation state with production history subscriptions for tests.
+    /// Creates TUI conversation selection state with production history subscriptions for tests.
     #[cfg(test)]
     pub(crate) fn new_for_tui_surface_with_history_test(
         terminal_surface_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
-        Self::new(terminal_surface_id, ConversationSurface::Tui, ctx)
+        Self::new(terminal_surface_id, ConversationSelectionBackend::Tui, ctx)
     }
 
     fn new(
         terminal_surface_id: EntityId,
-        surface: ConversationSurface,
+        backend: ConversationSelectionBackend,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
         ctx.subscribe_to_model(
@@ -171,14 +171,17 @@ impl ConversationSurfaceModel {
         Self {
             terminal_surface_id,
             pending_query_state,
-            surface,
+            backend,
         }
     }
 
     /// Returns whether this surface currently uses GUI Agent View selection.
     pub fn uses_agent_view_selection(&self) -> bool {
         FeatureFlag::AgentView.is_enabled()
-            && matches!(self.surface, ConversationSurface::TerminalView { .. })
+            && matches!(
+                self.backend,
+                ConversationSelectionBackend::TerminalView { .. }
+            )
     }
 
     /// Returns whether this surface has an active GUI Agent View.
@@ -340,7 +343,7 @@ impl ConversationSurfaceModel {
                 } else {
                     AIConversationAutoexecuteMode::RespectUserSettings
                 };
-                ctx.emit(ConversationSurfaceEvent::PendingQueryStateUpdated);
+                ctx.emit(ConversationSelectionEvent::PendingQueryStateUpdated);
             }
             PendingQueryState::Existing { conversation_id } => {
                 BlocklistAIHistoryModel::handle(ctx).update(ctx, |history, ctx| {
@@ -360,18 +363,18 @@ impl ConversationSurfaceModel {
     }
 
     fn agent_view_controller(&self) -> Option<&ModelHandle<AgentViewController>> {
-        match &self.surface {
-            ConversationSurface::TerminalView {
+        match &self.backend {
+            ConversationSelectionBackend::TerminalView {
                 agent_view_controller,
             } => Some(agent_view_controller),
-            ConversationSurface::Tui => None,
+            ConversationSelectionBackend::Tui => None,
         }
     }
 
     fn set_pending_query_state(&mut self, state: PendingQueryState, ctx: &mut ModelContext<Self>) {
         if self.pending_query_state != state {
             self.pending_query_state = state;
-            ctx.emit(ConversationSurfaceEvent::PendingQueryStateUpdated);
+            ctx.emit(ConversationSelectionEvent::PendingQueryStateUpdated);
         }
     }
 
@@ -431,10 +434,10 @@ impl ConversationSurfaceModel {
     }
 }
 
-impl Entity for ConversationSurfaceModel {
-    type Event = ConversationSurfaceEvent;
+impl Entity for ConversationSelectionModel {
+    type Event = ConversationSelectionEvent;
 }
 
 #[cfg(test)]
-#[path = "conversation_surface_model_tests.rs"]
+#[path = "conversation_selection_model_tests.rs"]
 mod tests;

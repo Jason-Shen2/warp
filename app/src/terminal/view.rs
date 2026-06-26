@@ -254,7 +254,7 @@ use crate::ai::blocklist::{
     BlocklistAIActionModel, BlocklistAIContextEvent, BlocklistAIContextModel,
     BlocklistAIController, BlocklistAIControllerEvent, BlocklistAIHistoryEvent,
     BlocklistAIHistoryModel, BlocklistAIInputEvent, BlocklistAIInputModel, ClientIdentifiers,
-    ConversationStatusUpdate, ConversationSurfaceModel, InputConfig, InputType,
+    ConversationSelectionModel, ConversationStatusUpdate, InputConfig, InputType,
     InputTypeAutoDetectionSource, LegacyPassiveSuggestionsEvent, LegacyPassiveSuggestionsModel,
     MaaPassiveSuggestionsEvent, MaaPassiveSuggestionsModel, PassiveSuggestionsModels,
     PendingAttachment, PendingQueryState, QueuedQuery, QueuedQueryId, QueuedQueryModel,
@@ -3444,8 +3444,8 @@ impl TerminalView {
             ctx.notify();
         });
 
-        let conversation_surface = ctx.add_model(|ctx| {
-            ConversationSurfaceModel::new_for_terminal_view(
+        let conversation_selection = ctx.add_model(|ctx| {
+            ConversationSelectionModel::new_for_terminal_view(
                 terminal_view_id,
                 agent_view_controller.clone(),
                 ctx,
@@ -3457,14 +3457,14 @@ impl TerminalView {
                 &model_events_handle,
                 model.clone(),
                 terminal_view_id,
-                conversation_surface.clone(),
+                conversation_selection.clone(),
                 ctx,
             )
         });
         let ai_input_model = ctx.add_model(|ctx| {
             let mut model = BlocklistAIInputModel::new(
                 model.clone(),
-                conversation_surface.clone(),
+                conversation_selection.clone(),
                 ai_context_model.clone(),
                 terminal_view_id,
                 ctx,
@@ -3495,7 +3495,7 @@ impl TerminalView {
             BlocklistAIController::new(
                 ai_input_model.clone(),
                 ai_context_model.clone(),
-                conversation_surface.clone(),
+                conversation_selection.clone(),
                 ai_action_model.clone(),
                 active_session.clone(),
                 model.clone(),

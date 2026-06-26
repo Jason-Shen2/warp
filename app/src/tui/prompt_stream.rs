@@ -17,8 +17,8 @@ use crate::ai::agent::conversation::AIConversationId;
 use crate::ai::agent::AIAgentTextSection;
 use crate::ai::blocklist::{
     BlocklistAIActionModel, BlocklistAIContextModel, BlocklistAIController,
-    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationStatusUpdate,
-    ConversationSurfaceModel,
+    BlocklistAIHistoryModel, BlocklistAIInputModel, ConversationSelectionModel,
+    ConversationStatusUpdate,
 };
 use crate::ai::get_relevant_files::controller::GetRelevantFilesController;
 use crate::banner::BannerState;
@@ -71,8 +71,8 @@ impl PromptStreamSurface {
         let terminal_surface_id: EntityId = ctx.view_id();
         let active_session =
             ctx.add_model(|ctx| ActiveSession::new(sessions.clone(), model_events.clone(), ctx));
-        let conversation_surface = ctx.add_model(|ctx| {
-            ConversationSurfaceModel::new_for_tui_surface(terminal_surface_id, ctx)
+        let conversation_selection = ctx.add_model(|ctx| {
+            ConversationSelectionModel::new_for_tui_surface(terminal_surface_id, ctx)
         });
         let context_model = ctx.add_model(|ctx| {
             BlocklistAIContextModel::new(
@@ -80,14 +80,14 @@ impl PromptStreamSurface {
                 &model_events,
                 model.clone(),
                 terminal_surface_id,
-                conversation_surface.clone(),
+                conversation_selection.clone(),
                 ctx,
             )
         });
         let input_model = ctx.add_model(|ctx| {
             BlocklistAIInputModel::new(
                 model.clone(),
-                conversation_surface.clone(),
+                conversation_selection.clone(),
                 context_model.clone(),
                 terminal_surface_id,
                 ctx,
@@ -108,7 +108,7 @@ impl PromptStreamSurface {
             BlocklistAIController::new(
                 input_model,
                 context_model.clone(),
-                conversation_surface.clone(),
+                conversation_selection.clone(),
                 action_model,
                 active_session,
                 model,
@@ -119,7 +119,7 @@ impl PromptStreamSurface {
         let conversation_model = ctx.add_model(|ctx| {
             TuiConversationModel::new(
                 terminal_surface_id,
-                conversation_surface,
+                conversation_selection,
                 ai_controller,
                 ctx,
             )
