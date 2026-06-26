@@ -29,8 +29,8 @@ impl AgentViewConversationSelection {
                 ..
             } => {
                 ctx.emit(ConversationSelectionEvent::Changed);
-                ctx.emit(ConversationSelectionEvent::AgentViewEntered {
-                    display_mode: *display_mode,
+                ctx.emit(ConversationSelectionEvent::Activated {
+                    is_fullscreen: display_mode.is_fullscreen(),
                     origin: origin.clone(),
                 });
             }
@@ -41,7 +41,7 @@ impl AgentViewConversationSelection {
                 ..
             } => {
                 ctx.emit(ConversationSelectionEvent::Changed);
-                ctx.emit(ConversationSelectionEvent::AgentViewExited {
+                ctx.emit(ConversationSelectionEvent::Deactivated {
                     conversation_id: *conversation_id,
                     final_exchange_count: *final_exchange_count,
                     is_exit_before_new_entrance: *is_exit_before_new_entrance,
@@ -60,10 +60,6 @@ impl AgentViewConversationSelection {
     }
 }
 
-#[cfg(test)]
-#[path = "conversation_selection_tests.rs"]
-mod tests;
-
 impl ConversationSelection for AgentViewConversationSelection {
     fn selected_conversation_id(&self, app: &AppContext) -> Option<AIConversationId> {
         self.agent_view_controller
@@ -72,11 +68,11 @@ impl ConversationSelection for AgentViewConversationSelection {
             .active_conversation_id()
     }
 
-    fn is_agent_view_active(&self, app: &AppContext) -> bool {
+    fn is_conversation_active(&self, app: &AppContext) -> bool {
         self.agent_view_controller.as_ref(app).is_active()
     }
 
-    fn is_agent_view_fullscreen(&self, app: &AppContext) -> bool {
+    fn is_conversation_fullscreen(&self, app: &AppContext) -> bool {
         self.agent_view_controller.as_ref(app).is_fullscreen()
     }
 
@@ -174,3 +170,7 @@ impl ConversationSelection for AgentViewConversationSelection {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "conversation_selection_tests.rs"]
+mod tests;

@@ -2,7 +2,7 @@
 
 use warpui::{AppContext, Entity, ModelContext, ModelHandle, SingletonEntity};
 
-use super::agent_view::{AgentViewDisplayMode, AgentViewEntryOrigin, EnterAgentViewError};
+use super::agent_view::{AgentViewEntryOrigin, EnterAgentViewError};
 use super::{BlocklistAIHistoryEvent, BlocklistAIHistoryModel};
 use crate::ai::agent::conversation::{
     AIConversation, AIConversationAutoexecuteMode, AIConversationId,
@@ -30,31 +30,37 @@ impl Default for PendingQueryState {
     }
 }
 
-/// Events emitted by a surface's conversation-selection implementation.
+/// Events emitted when a surface's conversation selection or presentation changes.
 #[derive(Clone, Debug)]
 pub enum ConversationSelectionEvent {
+    /// The conversation targeted by the next query or its configuration changed.
     Changed,
-    AgentViewEntered {
-        display_mode: AgentViewDisplayMode,
+    /// The surface began presenting a selected conversation.
+    Activated {
+        is_fullscreen: bool,
         origin: AgentViewEntryOrigin,
     },
-    AgentViewExited {
+    /// The surface stopped presenting a selected conversation.
+    Deactivated {
         conversation_id: AIConversationId,
         final_exchange_count: usize,
         is_exit_before_new_entrance: bool,
     },
 }
-
-/// Object-safe next-prompt conversation-selection contract implemented by each terminal surface.
+/// Coordinates the next-query target and conversation presentation for one terminal surface.
+///
+/// A selected conversation receives the surface's next query; without one, the next query starts a
+/// new conversation. Implementations also describe whether that selection is actively presented
+/// and whether it occupies the full surface, without exposing surface-specific presentation state.
 pub trait ConversationSelection {
     /// Returns the conversation targeted by the next query.
     fn selected_conversation_id(&self, app: &AppContext) -> Option<AIConversationId>;
 
     /// Returns whether this surface presents a selected conversation as active.
-    fn is_agent_view_active(&self, app: &AppContext) -> bool;
+    fn is_conversation_active(&self, app: &AppContext) -> bool;
 
-    /// Returns whether this surface presents a selected conversation fullscreen.
-    fn is_agent_view_fullscreen(&self, app: &AppContext) -> bool;
+    /// Returns whether an active conversation occupies the entire terminal surface.
+    fn is_conversation_fullscreen(&self, app: &AppContext) -> bool;
 
     /// Selects an existing conversation for the next query.
     fn select_existing_conversation(

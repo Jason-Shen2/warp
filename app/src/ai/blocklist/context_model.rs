@@ -162,7 +162,7 @@ impl BlocklistAIContextModel {
                         && me
                             .conversation_selection
                             .as_ref(ctx)
-                            .is_agent_view_fullscreen(ctx)
+                            .is_conversation_fullscreen(ctx)
                         && !user_block_completed.was_part_of_agent_interaction
                     {
                         me.auto_attached_agent_view_user_block_ids
@@ -202,8 +202,8 @@ impl BlocklistAIContextModel {
             ConversationSelectionEvent::Changed => {
                 ctx.emit(BlocklistAIContextEvent::PendingQueryStateUpdated);
             }
-            ConversationSelectionEvent::AgentViewEntered { .. }
-            | ConversationSelectionEvent::AgentViewExited { .. } => {
+            ConversationSelectionEvent::Activated { .. }
+            | ConversationSelectionEvent::Deactivated { .. } => {
                 me.auto_attached_agent_view_user_block_ids.clear();
             }
         });

@@ -1,7 +1,7 @@
 use warp::tui_export::{
-    AIConversationAutoexecuteMode, AIConversationId, AgentViewDisplayMode, AgentViewEntryOrigin,
-    BlocklistAIHistoryEvent, BlocklistAIHistoryModel, ConversationSelection,
-    ConversationSelectionEvent, EnterAgentViewError, PendingQueryState,
+    AIConversationAutoexecuteMode, AIConversationId, AgentViewEntryOrigin, BlocklistAIHistoryEvent,
+    BlocklistAIHistoryModel, ConversationSelection, ConversationSelectionEvent,
+    EnterAgentViewError, PendingQueryState,
 };
 use warpui::{AppContext, EntityId, ModelContext, SingletonEntity};
 
@@ -55,19 +55,19 @@ impl TuiConversationSelection {
         }
     }
 
-    /// Emits the fullscreen entry lifecycle for a selected TUI conversation.
-    fn emit_entered(
+    /// Emits activation for a selected TUI conversation.
+    fn emit_activated(
         origin: AgentViewEntryOrigin,
         ctx: &mut ModelContext<Box<dyn ConversationSelection>>,
     ) {
-        ctx.emit(ConversationSelectionEvent::AgentViewEntered {
-            display_mode: AgentViewDisplayMode::FullScreen,
+        ctx.emit(ConversationSelectionEvent::Activated {
+            is_fullscreen: true,
             origin,
         });
     }
 
-    /// Emits the exit lifecycle for a previously selected TUI conversation.
-    fn emit_exited(
+    /// Emits deactivation for a previously selected TUI conversation.
+    fn emit_deactivated(
         conversation_id: AIConversationId,
         is_exit_before_new_entrance: bool,
         ctx: &mut ModelContext<Box<dyn ConversationSelection>>,
@@ -76,7 +76,7 @@ impl TuiConversationSelection {
             .conversation(&conversation_id)
             .map(|conversation| conversation.exchange_count())
             .unwrap_or(0);
-        ctx.emit(ConversationSelectionEvent::AgentViewExited {
+        ctx.emit(ConversationSelectionEvent::Deactivated {
             conversation_id,
             final_exchange_count,
             is_exit_before_new_entrance,
@@ -84,20 +84,16 @@ impl TuiConversationSelection {
     }
 }
 
-#[cfg(test)]
-#[path = "conversation_selection_tests.rs"]
-mod tests;
-
 impl ConversationSelection for TuiConversationSelection {
     fn selected_conversation_id(&self, _: &AppContext) -> Option<AIConversationId> {
         self.selected_id()
     }
 
-    fn is_agent_view_active(&self, _: &AppContext) -> bool {
+    fn is_conversation_active(&self, _: &AppContext) -> bool {
         self.selected_id().is_some()
     }
-
-    fn is_agent_view_fullscreen(&self, _: &AppContext) -> bool {
+    /// The TUI has no terminal/Agent View split, so every selected conversation is fullscreen.
+    fn is_conversation_fullscreen(&self, _: &AppContext) -> bool {
         self.selected_id().is_some()
     }
 
@@ -112,10 +108,10 @@ impl ConversationSelection for TuiConversationSelection {
             return;
         }
         if let Some(previous_conversation_id) = previous_conversation_id {
-            Self::emit_exited(previous_conversation_id, true, ctx);
+            Self::emit_deactivated(previous_conversation_id, true, ctx);
         }
         self.set_pending_query_state(PendingQueryState::Existing { conversation_id }, ctx);
-        Self::emit_entered(origin, ctx);
+        Self::emit_activated(origin, ctx);
     }
 
     fn select_new_conversation(
@@ -126,7 +122,7 @@ impl ConversationSelection for TuiConversationSelection {
         let previous_conversation_id = self.selected_id();
         self.set_pending_query_state(PendingQueryState::default(), ctx);
         if let Some(previous_conversation_id) = previous_conversation_id {
-            Self::emit_exited(previous_conversation_id, false, ctx);
+            Self::emit_deactivated(previous_conversation_id, false, ctx);
         }
     }
 
@@ -136,7 +132,7 @@ impl ConversationSelection for TuiConversationSelection {
         ctx: &mut ModelContext<Box<dyn ConversationSelection>>,
     ) -> Result<AIConversationId, EnterAgentViewError> {
         if let Some(previous_conversation_id) = self.selected_id() {
-            Self::emit_exited(previous_conversation_id, true, ctx);
+            Self::emit_deactivated(previous_conversation_id, true, ctx);
         }
         let is_autoexecute_override = matches!(
             self.pending_query_state,
@@ -154,7 +150,7 @@ impl ConversationSelection for TuiConversationSelection {
             )
         });
         self.set_pending_query_state(PendingQueryState::Existing { conversation_id }, ctx);
-        Self::emit_entered(origin, ctx);
+        Self::emit_activated(origin, ctx);
         Ok(conversation_id)
     }
 
@@ -248,3 +244,7 @@ impl ConversationSelection for TuiConversationSelection {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "conversation_selection_tests.rs"]
+mod tests;

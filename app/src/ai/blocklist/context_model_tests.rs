@@ -74,11 +74,11 @@ impl ConversationSelection for TestConversationSelection {
         self.selected_conversation_id
     }
 
-    fn is_agent_view_active(&self, _: &warpui::AppContext) -> bool {
+    fn is_conversation_active(&self, _: &warpui::AppContext) -> bool {
         self.selected_conversation_id.is_some()
     }
 
-    fn is_agent_view_fullscreen(&self, _: &warpui::AppContext) -> bool {
+    fn is_conversation_fullscreen(&self, _: &warpui::AppContext) -> bool {
         self.selected_conversation_id.is_some()
     }
 

@@ -38,8 +38,8 @@ fn tui_selection_owns_next_prompt_selection() {
                 selection.selected_conversation_id(ctx),
                 Some(conversation_id)
             );
-            assert!(selection.is_agent_view_active(ctx));
-            assert!(selection.is_agent_view_fullscreen(ctx));
+            assert!(selection.is_conversation_active(ctx));
+            assert!(selection.is_conversation_fullscreen(ctx));
         });
 
         selection.update(&mut app, |selection, ctx| {
@@ -47,8 +47,8 @@ fn tui_selection_owns_next_prompt_selection() {
         });
         selection.read(&app, |selection, ctx| {
             assert_eq!(selection.selected_conversation_id(ctx), None);
-            assert!(!selection.is_agent_view_active(ctx));
-            assert!(!selection.is_agent_view_fullscreen(ctx));
+            assert!(!selection.is_conversation_active(ctx));
+            assert!(!selection.is_conversation_fullscreen(ctx));
         });
     });
 }

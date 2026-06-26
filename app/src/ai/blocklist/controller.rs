@@ -548,7 +548,7 @@ impl BlocklistAIController {
         });
 
         ctx.subscribe_to_model(&conversation_selection, |me, _, event, ctx| {
-            let ConversationSelectionEvent::AgentViewExited {
+            let ConversationSelectionEvent::Deactivated {
                 conversation_id,
                 final_exchange_count,
                 is_exit_before_new_entrance,
