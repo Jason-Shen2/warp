@@ -1,6 +1,7 @@
 //! One-shot TUI prompt streaming to stdout.
 
 use std::any::Any;
+use std::io::{self, Write};
 
 use anyhow::anyhow;
 use pathfinder_geometry::vector::Vector2F;
@@ -58,6 +59,24 @@ impl TypedActionView for PromptStreamHostView {
 struct PromptStreamSurface {
     conversation_model: ModelHandle<TuiConversationModel>,
     last_output: String,
+}
+
+/// Writes only the newly appended portion of a stream snapshot.
+fn write_stream_snapshot_delta<W: Write>(
+    last_output: &mut String,
+    text: &str,
+    output: &mut W,
+) -> io::Result<()> {
+    if text == last_output {
+        return Ok(());
+    }
+
+    let delta = text.strip_prefix(last_output.as_str()).unwrap_or(text);
+    output.write_all(delta.as_bytes())?;
+    output.flush()?;
+    last_output.clear();
+    last_output.push_str(text);
+    Ok(())
 }
 
 impl PromptStreamSurface {
@@ -178,6 +197,9 @@ impl PromptStreamSurface {
             } => {
                 self.print_stream_snapshot(*conversation_id, ctx);
                 if !status.is_in_progress() {
+                    if !self.last_output.is_empty() && !self.last_output.ends_with('\n') {
+                        println!();
+                    }
                     if let Some(server_conversation_token) = BlocklistAIHistoryModel::as_ref(ctx)
                         .conversation(conversation_id)
                         .and_then(|conversation| conversation.server_conversation_token())
@@ -233,9 +255,9 @@ impl PromptStreamSurface {
             );
             return;
         }
-        if text != self.last_output {
-            println!("{text}");
-            self.last_output = text;
+        let mut stdout = std::io::stdout().lock();
+        if let Err(error) = write_stream_snapshot_delta(&mut self.last_output, &text, &mut stdout) {
+            self.terminate_with_error(anyhow!("Failed to write TUI stream output: {error}"), ctx);
         }
     }
 
@@ -389,3 +411,7 @@ fn start_prompt_stream(
         _surface: surface,
     });
 }
+
+#[cfg(test)]
+#[path = "prompt_stream_tests.rs"]
+mod tests;
