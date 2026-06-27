@@ -2763,6 +2763,8 @@ impl BlockList {
             return;
         }
 
+        let initial_received_precmd = self.active_block().has_received_precmd();
+
         // Share one Processor across all blocks — more efficient than creating a new one per block
         // as `insert_restored_block` does.
         let mut processor = Processor::new();
@@ -2785,8 +2787,10 @@ impl BlockList {
 
         // Fire a single BlockMetadataReceived for the final active block, triggering one
         // refresh_warp_prompt + git repo detection.
-        if let Some(precmd_value) = self.last_populated_precmd_payload.clone() {
-            delegate_to_block!(self.precmd(precmd_value));
+        if initial_received_precmd {
+            if let Some(precmd_value) = self.last_populated_precmd_payload.clone() {
+                delegate_to_block!(self.precmd(precmd_value));
+            }
         }
     }
 
